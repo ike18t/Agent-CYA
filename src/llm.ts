@@ -1,0 +1,160 @@
+import { spawn } from "node:child_process";
+import { buildSystemPrompt, buildUserPrompt } from "./prompt.ts";
+import type { ReviewInput } from "./prompt.ts";
+
+export type LlmDecision = {
+  decision: "allow" | "deny" | "ask";
+  reason: string;
+};
+
+const FALLBACK: LlmDecision = {
+  decision: "ask",
+  reason: "LLM unavailable, needs human review",
+};
+
+const SPAWN_TIMEOUT_MS = 90_000;
+
+const INVOCATION_FOR_PLATFORM: Record<
+  "claude" | "opencode",
+  Readonly<{ binary: string; leadingArgs: readonly string[] }>
+> = {
+  claude: { binary: "claude", leadingArgs: ["-p"] },
+  opencode: { binary: "opencode", leadingArgs: ["run"] },
+};
+
+const SECRET_PATTERNS = [
+  /KEY$/i,
+  /TOKEN$/i,
+  /SECRET$/i,
+  /PASSWORD$/i,
+  /_KEY$/i,
+  /_TOKEN$/i,
+  /_SECRET$/i,
+  /_PASSWORD$/i,
+];
+
+const sanitizeEnv = (): NodeJS.ProcessEnv =>
+  Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key, value]) => !value || !SECRET_PATTERNS.some((re) => re.test(key)),
+    ),
+  ) as NodeJS.ProcessEnv;
+
+const extractJson = (raw: string): string => {
+  const trimmed = raw.trim();
+  const codeBlockMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (codeBlockMatch) {
+    return codeBlockMatch[1].trim();
+  }
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return trimmed.slice(firstBrace, lastBrace + 1);
+  }
+  return trimmed;
+};
+
+export const parseLlmResponse = (raw: string): LlmDecision => {
+  try {
+    const jsonStr = extractJson(raw);
+    const parsed = JSON.parse(jsonStr);
+    const decision = parsed.decision;
+    if (decision !== "allow" && decision !== "deny" && decision !== "ask") {
+      return { decision: "ask", reason: "Invalid LLM response, needs review" };
+    }
+    const reason =
+      typeof parsed.reason === "string" ? parsed.reason : "No reason provided";
+    return { decision, reason };
+  } catch {
+    return { decision: "ask", reason: "Invalid LLM response, needs review" };
+  }
+};
+
+/* eslint-disable functional/immutable-data -- callback-based spawn needs mutable accumulator */
+const spawnBinary = (
+  binary: string,
+  args: readonly string[],
+  spawnFn: typeof spawn,
+): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const child = spawnFn(binary, [...args], {
+      env: { ...sanitizeEnv(), NODE_NO_WARNINGS: "1" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    const acc = { stdout: "", stderr: "", settled: false };
+
+    const cleanup = () => {
+      if (!child.killed) child.kill("SIGTERM");
+    };
+    const timeout = setTimeout(() => {
+      if (acc.settled) return;
+      acc.settled = true;
+      cleanup();
+      reject(new Error(`${binary} timed out after ${SPAWN_TIMEOUT_MS}ms`));
+    }, SPAWN_TIMEOUT_MS);
+    timeout.unref();
+
+    child.stdout.on("data", (data: Buffer) => {
+      acc.stdout += data.toString();
+    });
+
+    child.stderr.on("data", (data: Buffer) => {
+      acc.stderr += data.toString();
+    });
+
+    child.on("close", (code) => {
+      if (acc.settled) return;
+      acc.settled = true;
+      clearTimeout(timeout);
+      if (code === 0 && acc.stdout.trim()) {
+        resolve(acc.stdout.trim());
+      } else {
+        reject(
+          new Error(
+            `${binary} exited ${code}: ${acc.stderr.trim() || "no output"}`,
+          ),
+        );
+      }
+    });
+
+    child.on("error", (err) => {
+      if (acc.settled) return;
+      acc.settled = true;
+      clearTimeout(timeout);
+      cleanup();
+      reject(new Error(`Failed to spawn ${binary}: ${err.message}`));
+    });
+  });
+};
+/* eslint-enable functional/immutable-data */
+
+export const review = async function review(
+  input: Readonly<ReviewInput>,
+  platform: "opencode" | "claude",
+  spawnFn: typeof spawn = spawn,
+): Promise<LlmDecision> {
+  const invocation = INVOCATION_FOR_PLATFORM[platform];
+  if (!invocation) {
+    return { decision: "ask", reason: `Unknown platform: ${platform}` };
+  }
+
+  const systemPrompt = buildSystemPrompt();
+  const userPrompt = buildUserPrompt(input);
+  const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+
+  try {
+    const raw = await spawnBinary(
+      invocation.binary,
+      [...invocation.leadingArgs, fullPrompt],
+      spawnFn,
+    );
+    return parseLlmResponse(raw);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    process.stderr.write(
+      `[agent-cya] LLM review failed (${invocation.binary}): ${message}\n`,
+    );
+    return FALLBACK;
+  }
+};

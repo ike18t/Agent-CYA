@@ -1,0 +1,32 @@
+{
+  "name": "agent-cya",
+  "version": "1.0.0",
+  "description": "CLI that reviews AI coding assistant tool calls (Claude Code, OpenCode) before execution via hooks",
+  "type": "module",
+  "main": "src/cli.ts",
+  "bin": {
+    "agent-cya": "./bin/agent-cya"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "tsc --noEmit && eslint . && prettier . --check && knip",
+    "lint:fix": "eslint . --fix && prettier . --write ."
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.1",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-functional": "^9.0.4",
+    "knip": "^6.4.1",
+    "prettier": "^3.8.2",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.60.1",
+    "vitest": "^3.1.2"
+  },
+  "author": "",
+  "license": "ISC"
+}

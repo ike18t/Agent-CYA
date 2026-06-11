@@ -1,0 +1,3 @@
+{
+  "entry": ["src/main.ts", "hooks/claude-hook.sh", "hooks/opencode-plugin.ts"]
+}

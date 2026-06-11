@@ -1,0 +1,9 @@
+dist/
+coverage/
+ui/dist/
+src/api/
+ui/src/api/
+ui/openapi.json
+node_modules/
+.claude/
+evaluations/
