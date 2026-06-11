@@ -3,7 +3,7 @@ const HARD_DENY_PATTERNS: readonly string[] = [
   "rm\\s+-[a-z]*r[a-z]*\\s+(/|/tmp|/var|/usr|/etc)",
   "rm\\s+-rf\\s+\\.",
   "rm\\s+-rf\\s+\\*",
-  "(mkfs(\\.\\w+)?|fdisk|dd)\\s",
+  "\\b(mkfs(\\.\\w+)?|fdisk|dd)\\s",
   ":\\(\\)\\{",
   "(curl|wget|fetch)\\s+.*\\|\\s*(sh|bash|zsh)",
   "^export\\b(\\s*$|\\s*[|>]|\\s+-p\\b)",

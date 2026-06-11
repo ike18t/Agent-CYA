@@ -81,6 +81,16 @@ describe("evaluateHardDeny", () => {
     expect(result).not.toBeNull();
   });
 
+  it("denies dd as a command", () => {
+    expect(evaluateHardDeny("dd if=/dev/zero of=/dev/sda")).not.toBeNull();
+  });
+
+  it("does not flag 'dd' embedded inside another word (e.g. 'git add ')", () => {
+    expect(evaluateHardDeny("git add src/file.ts")).toBeNull();
+    expect(evaluateHardDeny("oddly named")).toBeNull();
+    expect(evaluateHardDeny("npm install lodash")).toBeNull();
+  });
+
   it("allows safe commands", () => {
     expect(evaluateHardDeny("ls")).toBeNull();
     expect(evaluateHardDeny("npm test")).toBeNull();
