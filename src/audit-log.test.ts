@@ -1,4 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as auditLog from "./audit-log.ts";
 
 describe("createAuditLogger", () => {
@@ -68,27 +77,86 @@ describe("createAuditLogger", () => {
   });
 
   it("writes json-lines to file", () => {
-    const fs = vi.hoisted(() => ({
-      appendFileSync: vi.fn(),
-      mkdirSync: vi.fn(),
-    }));
-    vi.mock("node:fs", () => fs);
+    const dir = mkdtempSync(join(tmpdir(), "agent-cya-audit-"));
+    const logPath = join(dir, "audit.log");
+    try {
+      const logger = auditLog.createAuditLogger(logPath);
+      logger.write({
+        timestamp: "2026-01-01T00:00:00.000Z",
+        tool: "Bash",
+        command: "ls",
+        decision: "allow",
+        reason: "safe",
+        source: "llm",
+      });
+      const content = readFileSync(logPath, "utf-8");
+      expect(content).toContain('"tool":"Bash"');
+      expect(content.endsWith("\n")).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
 
-    const logger = auditLog.createAuditLogger();
-    logger.write({
-      timestamp: "2026-01-01T00:00:00.000Z",
-      tool: "Bash",
-      command: "ls",
-      decision: "allow",
-      reason: "safe",
-      source: "llm",
-    });
+describe("audit log rotation", () => {
+  const ctx = { dir: "" };
 
-    expect(fs.mkdirSync).toHaveBeenCalled();
-    expect(fs.appendFileSync).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.stringContaining('"tool":"Bash"'),
-      "utf-8",
-    );
+  beforeEach(() => {
+    ctx.dir = mkdtempSync(join(tmpdir(), "agent-cya-audit-"));
+  });
+
+  afterEach(() => {
+    rmSync(ctx.dir, { recursive: true, force: true });
+    delete process.env.AGENT_CYA_AUDIT_MAX_BYTES;
+  });
+
+  const entry: auditLog.AuditEntry = {
+    timestamp: "2026-01-01T00:00:00.000Z",
+    tool: "Bash",
+    command: "ls",
+    decision: "allow",
+    reason: "safe",
+    source: "llm",
+  };
+
+  it("rotates the log file when it would exceed the cap", () => {
+    process.env.AGENT_CYA_AUDIT_MAX_BYTES = "100";
+    const logPath = join(ctx.dir, "audit.log");
+    const logger = auditLog.createAuditLogger(logPath);
+
+    // Each line ~85 bytes; two writes overflows the 100-byte cap.
+    logger.write(entry);
+    expect(statSync(logPath).size).toBeGreaterThan(0);
+    expect(existsSync(`${logPath}.1`)).toBe(false);
+
+    logger.write(entry);
+    expect(existsSync(`${logPath}.1`)).toBe(true);
+    expect(readFileSync(`${logPath}.1`, "utf-8")).toContain('"tool":"Bash"');
+    // Fresh file holds only the latest write.
+    expect(
+      readFileSync(logPath, "utf-8").split("\n").filter(Boolean),
+    ).toHaveLength(1);
+  });
+
+  it("does not rotate when cap is not exceeded", () => {
+    process.env.AGENT_CYA_AUDIT_MAX_BYTES = "10000";
+    const logPath = join(ctx.dir, "audit.log");
+    const logger = auditLog.createAuditLogger(logPath);
+
+    logger.write(entry);
+    logger.write(entry);
+    logger.write(entry);
+
+    expect(existsSync(`${logPath}.1`)).toBe(false);
+    expect(
+      readFileSync(logPath, "utf-8").split("\n").filter(Boolean),
+    ).toHaveLength(3);
+  });
+
+  it("handles first write to a missing file", () => {
+    const logPath = join(ctx.dir, "audit.log");
+    const logger = auditLog.createAuditLogger(logPath);
+    expect(() => logger.write(entry)).not.toThrow();
+    expect(existsSync(logPath)).toBe(true);
   });
 });
