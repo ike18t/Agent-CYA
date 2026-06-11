@@ -125,26 +125,32 @@ describe("review", () => {
     );
   });
 
-  it("returns ask fallback on spawn error", async () => {
+  it("returns ask fallback with cause in reason on spawn error (and retries once)", async () => {
     const mockSpawn = vi.fn().mockReturnValue({
       stdout: { on: () => {} },
       stderr: { on: () => {} },
       on: (event: string, handler: (val: number | Error) => void) => {
         if (event === "error") handler(new Error("ENOENT"));
       },
+      kill: () => {},
+      killed: false,
     });
+    const fakeSleep = vi.fn().mockResolvedValue(undefined);
 
     const result = await review(
       { toolType: "Bash", command: "ls", fileContent: null },
       "claude",
       mockSpawn,
+      fakeSleep,
     );
 
+    expect(mockSpawn).toHaveBeenCalledTimes(2);
     expect(result.decision).toBe("ask");
-    expect(result.reason).toBe("LLM unavailable, needs human review");
+    expect(result.reason).toContain("LLM unavailable (claude:");
+    expect(result.reason).toContain("ENOENT");
   });
 
-  it("returns ask fallback on binary non-zero exit", async () => {
+  it("returns ask fallback with cause on non-zero exit (and retries once)", async () => {
     const mockSpawn = vi.fn().mockReturnValue({
       stdout: { on: () => {} },
       stderr: {
@@ -156,15 +162,89 @@ describe("review", () => {
         if (event === "close") handler(1);
       },
     });
+    const fakeSleep = vi.fn().mockResolvedValue(undefined);
 
     const result = await review(
       { toolType: "Bash", command: "ls", fileContent: null },
       "claude",
       mockSpawn,
+      fakeSleep,
     );
 
+    expect(mockSpawn).toHaveBeenCalledTimes(2);
     expect(result.decision).toBe("ask");
-    expect(result.reason).toBe("LLM unavailable, needs human review");
+    expect(result.reason).toContain("LLM unavailable (claude:");
+    expect(result.reason).toContain("binary error");
+  });
+
+  it("retries once on transient failure and uses the second result", async () => {
+    const failingChild = {
+      stdout: { on: () => {} },
+      stderr: {
+        on: (_: string, handler: (data: Buffer) => void) => {
+          handler(Buffer.from("transient"));
+        },
+      },
+      on: (event: string, handler: (val: number) => void) => {
+        if (event === "close") handler(1);
+      },
+    };
+    const succeedingChild = {
+      stdout: {
+        on: (_: string, handler: (data: Buffer) => void) => {
+          handler(Buffer.from('{"decision":"allow","reason":"retry worked"}'));
+        },
+      },
+      stderr: { on: () => {} },
+      on: (event: string, handler: (val: number) => void) => {
+        if (event === "close") handler(0);
+      },
+    };
+    const mockSpawn = vi
+      .fn()
+      .mockReturnValueOnce(failingChild)
+      .mockReturnValueOnce(succeedingChild);
+    const fakeSleep = vi.fn().mockResolvedValue(undefined);
+
+    const result = await review(
+      { toolType: "Bash", command: "ls", fileContent: null },
+      "claude",
+      mockSpawn,
+      fakeSleep,
+    );
+
+    expect(mockSpawn).toHaveBeenCalledTimes(2);
+    expect(result.decision).toBe("allow");
+    expect(result.reason).toBe("retry worked");
+  });
+
+  it("does not retry on timeout failures", async () => {
+    const mockSpawn = vi.fn().mockReturnValue({
+      stdout: { on: () => {} },
+      stderr: { on: () => {} },
+      on: () => {
+        // Never settles — spawnBinary will time out via SPAWN_TIMEOUT_MS.
+        // We use fake timers below to fast-forward without waiting 90s.
+      },
+      killed: false,
+      kill: () => {},
+    });
+    const fakeSleep = vi.fn().mockResolvedValue(undefined);
+
+    vi.useFakeTimers();
+    const promise = review(
+      { toolType: "Bash", command: "ls", fileContent: null },
+      "claude",
+      mockSpawn,
+      fakeSleep,
+    );
+    await vi.advanceTimersByTimeAsync(95_000);
+    const result = await promise;
+    vi.useRealTimers();
+
+    expect(mockSpawn).toHaveBeenCalledTimes(1);
+    expect(result.decision).toBe("ask");
+    expect(result.reason).toContain("timed out");
   });
 
   describe("padAskDecision", () => {

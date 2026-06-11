@@ -7,11 +7,6 @@ export type LlmDecision = {
   reason: string;
 };
 
-const FALLBACK: LlmDecision = {
-  decision: "ask",
-  reason: "LLM unavailable, needs human review",
-};
-
 const SPAWN_TIMEOUT_MS = 90_000;
 
 const DEFAULT_MIN_ASK_MS = 60_000;
@@ -158,37 +153,66 @@ const spawnBinary = (
 };
 /* eslint-enable functional/immutable-data */
 
+const RETRY_DELAY_MS = 500;
+
+type SpawnOutcome = Readonly<{ raw: string } | { error: string }>;
+
+const attemptSpawn = (
+  binary: string,
+  args: readonly string[],
+  spawnFn: typeof spawn,
+): Promise<SpawnOutcome> =>
+  spawnBinary(binary, args, spawnFn)
+    .then((raw): SpawnOutcome => ({ raw }))
+    .catch(
+      (err): SpawnOutcome => ({
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+
 const callLlm = async (
   invocation: Readonly<{ binary: string; leadingArgs: readonly string[] }>,
   fullPrompt: string,
   spawnFn: typeof spawn,
+  sleepFn: (ms: number) => Promise<void> = sleep,
 ): Promise<LlmDecision> => {
-  try {
-    const raw = await spawnBinary(
-      invocation.binary,
-      [...invocation.leadingArgs, fullPrompt],
-      spawnFn,
-    );
-    return parseLlmResponse(raw);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    process.stderr.write(
-      `[agent-cya] LLM review failed (${invocation.binary}): ${message}\n`,
-    );
-    return FALLBACK;
-  }
+  const args = [...invocation.leadingArgs, fullPrompt];
+
+  const first = await attemptSpawn(invocation.binary, args, spawnFn);
+  const final: SpawnOutcome =
+    "raw" in first || first.error.includes("timed out")
+      ? first
+      : await (async () => {
+          process.stderr.write(
+            `[agent-cya] retrying ${invocation.binary} after: ${first.error}\n`,
+          );
+          await sleepFn(RETRY_DELAY_MS);
+          return attemptSpawn(invocation.binary, args, spawnFn);
+        })();
+
+  if ("raw" in final) return parseLlmResponse(final.raw);
+
+  process.stderr.write(
+    `[agent-cya] LLM review failed (${invocation.binary}): ${final.error}\n`,
+  );
+  return {
+    decision: "ask",
+    reason: `LLM unavailable (${invocation.binary}: ${final.error})`,
+  };
 };
 
 export const review = async function review(
   input: Readonly<ReviewInput>,
   platform: "opencode" | "claude",
   spawnFn: typeof spawn = spawn,
+  sleepFn: (ms: number) => Promise<void> = sleep,
 ): Promise<LlmDecision> {
   const invocation = INVOCATION_FOR_PLATFORM[platform];
   if (!invocation) {
     return padAskDecision(
       { decision: "ask", reason: `Unknown platform: ${platform}` },
       0,
+      sleepFn,
     );
   }
 
@@ -197,6 +221,6 @@ export const review = async function review(
   const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
 
   const startMs = Date.now();
-  const decision = await callLlm(invocation, fullPrompt, spawnFn);
-  return padAskDecision(decision, Date.now() - startMs);
+  const decision = await callLlm(invocation, fullPrompt, spawnFn, sleepFn);
+  return padAskDecision(decision, Date.now() - startMs, sleepFn);
 };
