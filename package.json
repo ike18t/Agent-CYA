@@ -7,6 +7,12 @@
   "bin": {
     "agent-cya": "./bin/agent-cya"
   },
+  "files": [
+    "bin/",
+    "hooks/",
+    "src/",
+    "!src/**/*.test.ts"
+  ],
   "scripts": {
     "build": "tsc --noEmit",
     "test": "vitest run",
