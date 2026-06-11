@@ -3,6 +3,11 @@ import { evaluateHardDeny } from "./rules.ts";
 import { review } from "./llm.ts";
 import { createAuditLogger } from "./audit-log.ts";
 import { enrichBashFileContent } from "./file-enrich.ts";
+import {
+  parseClaudeCodeHookInput,
+  formatClaudeCodeHookOutput,
+  exitCodeForDecision,
+} from "./hook-claude-code.ts";
 import type { ReviewInput } from "./prompt.ts";
 import type { LlmDecision } from "./llm.ts";
 
@@ -44,13 +49,23 @@ const parseInput = (raw: string): ReviewInput => {
   };
 };
 
-const commit = (
+const evaluateRequest = async (
+  input: Readonly<ReviewInput>,
+  platform: "opencode" | "claude",
+): Promise<Readonly<{ decision: LlmDecision; source: "rule" | "llm" }>> => {
+  const denyResult = evaluateHardDeny(input.command);
+  if (denyResult) return { decision: denyResult, source: "rule" };
+  const enriched = enrichBashFileContent(input);
+  const decision = await review(enriched, platform);
+  return { decision, source: "llm" };
+};
+
+const writeAudit = (
   input: Readonly<ReviewInput>,
   decision: Readonly<LlmDecision>,
   source: "rule" | "llm",
   audit: ReturnType<typeof createAuditLogger>,
-): number => {
-  process.stdout.write(JSON.stringify(decision) + "\n");
+): void => {
   audit.write({
     timestamp: new Date().toISOString(),
     tool: input.toolType,
@@ -59,7 +74,6 @@ const commit = (
     reason: decision.reason,
     source,
   });
-  return decision.decision === "deny" ? 1 : 0;
 };
 
 const runReview = async (
@@ -70,15 +84,10 @@ const runReview = async (
 
   try {
     const input = parseInput(stdinRaw);
-
-    const denyResult = evaluateHardDeny(input.command);
-    if (denyResult) {
-      return commit(input, denyResult, "rule", audit);
-    }
-
-    const enriched = enrichBashFileContent(input);
-    const llmResult: LlmDecision = await review(enriched, platform);
-    return commit(input, llmResult, "llm", audit);
+    const { decision, source } = await evaluateRequest(input, platform);
+    process.stdout.write(JSON.stringify(decision) + "\n");
+    writeAudit(input, decision, source, audit);
+    return decision.decision === "deny" ? 1 : 0;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     process.stderr.write(`[agent-cya] ${message}\n`);
@@ -86,24 +95,70 @@ const runReview = async (
   }
 };
 
+const runHookClaudeCode = async (
+  stdinRaw: string,
+  platform: "opencode" | "claude",
+): Promise<number> => {
+  const audit = createAuditLogger();
+
+  try {
+    const input = parseClaudeCodeHookInput(stdinRaw);
+    const { decision, source } = await evaluateRequest(input, platform);
+    process.stdout.write(formatClaudeCodeHookOutput(decision) + "\n");
+    writeAudit(input, decision, source, audit);
+    return exitCodeForDecision(decision);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`[agent-cya] ${message}\n`);
+    process.stdout.write(
+      formatClaudeCodeHookOutput({
+        decision: "ask",
+        reason: `agent-cya error: ${message}`,
+      }) + "\n",
+    );
+    return 1;
+  }
+};
+
+const validatePlatform = (platform: string): "opencode" | "claude" => {
+  if (platform !== "opencode" && platform !== "claude") {
+    process.stderr.write(
+      `[agent-cya] invalid platform '${platform}'. Must be 'opencode' or 'claude'\n`,
+    );
+    process.exit(1);
+  }
+  return platform;
+};
+
 program
   .command("review")
-  .description("Review a tool call from stdin")
+  .description("Review a tool call from stdin (agent-cya input format)")
   .requiredOption(
     "--platform <platform>",
     "Platform binary: 'claude' (claude CLI) or 'opencode' (opencode CLI)",
   )
   .action(async (options) => {
-    const platform = options.platform as string;
-    if (platform !== "opencode" && platform !== "claude") {
-      process.stderr.write(
-        `[agent-cya] invalid platform '${platform}'. Must be 'opencode' or 'claude'\n`,
-      );
-      process.exit(1);
-    }
+    const platform = validatePlatform(options.platform as string);
     const stdin = await readStdin();
     const exitCode = await runReview(stdin, platform);
     process.exit(exitCode);
   });
 
-export { runReview, parseInput, program };
+program
+  .command("hook-claude-code")
+  .description(
+    "Run as a Claude Code PermissionRequest hook (reads/writes Claude Code's hook format)",
+  )
+  .option(
+    "--platform <platform>",
+    "Platform binary: 'claude' or 'opencode'",
+    "claude",
+  )
+  .action(async (options) => {
+    const platform = validatePlatform(options.platform as string);
+    const stdin = await readStdin();
+    const exitCode = await runHookClaudeCode(stdin, platform);
+    process.exit(exitCode);
+  });
+
+export { runReview, runHookClaudeCode, parseInput, program };

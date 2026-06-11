@@ -35,7 +35,13 @@ Node 23.9+ is required for native `.ts` execution. No compilation step — sourc
 
 ### As a Claude Code Hook
 
-Add a `PermissionRequest` hook to `~/.claude/settings.json` that points at `hooks/claude-hook.sh`:
+Install globally so the `agent-cya` binary is on PATH:
+
+```bash
+npm install -g agent-cya
+```
+
+Then add a `PermissionRequest` hook to `~/.claude/settings.json`:
 
 ```json
 {
@@ -46,7 +52,7 @@ Add a `PermissionRequest` hook to `~/.claude/settings.json` that points at `hook
         "hooks": [
           {
             "type": "command",
-            "command": "/absolute/path/to/agent-cya/hooks/claude-hook.sh",
+            "command": "agent-cya hook-claude-code",
             "timeout": 120
           }
         ]
@@ -56,7 +62,7 @@ Add a `PermissionRequest` hook to `~/.claude/settings.json` that points at `hook
 }
 ```
 
-Replace `/absolute/path/to/agent-cya` with where you cloned this repo. The hook reviews via the `claude` CLI by default; prepend `AGENT_CYA_PLATFORM=opencode` to the command to use OpenCode instead. To gate file edits too, widen the matcher to `"Bash|Write|Edit"`.
+The `hook-claude-code` subcommand reads Claude Code's `PermissionRequest` input on stdin, runs the review pipeline, and emits a `hookSpecificOutput` decision. It reviews via the `claude` CLI by default; pass `--platform opencode` (or set `AGENT_CYA_PLATFORM=opencode` in the hook command) to use OpenCode instead. To gate file edits too, widen the matcher to `"Bash|Write|Edit"`.
 
 The hook only fires when Claude Code would otherwise prompt for permission — already-allowlisted commands skip it. AgentCYA's `allow` / `deny` / `ask` decisions map directly to `PermissionRequest` behaviors; `ask` falls through to Claude Code's standard permission dialog.
 
@@ -71,23 +77,67 @@ The hook only fires when Claude Code would otherwise prompt for permission — a
 
 ### As an OpenCode Plugin
 
-Use `hooks/opencode-plugin.ts` as an OpenCode `tool.execute.before` plugin. It spawns the `agent-cya` binary as a subprocess with a 30s timeout and throws on deny/ask decisions.
+OpenCode loads plugins as TypeScript/JavaScript modules from your own plugins folder, so AgentCYA stays out of the import path — you just spawn the `agent-cya` CLI from a tiny plugin you control. Drop this file into your OpenCode plugins directory:
 
-Configure the LLM backend via `AGENT_CYA_PLATFORM` (defaults to `opencode`):
+```typescript
+// ~/.config/opencode/plugins/agent-cya.ts
+import { spawn } from "node:child_process";
 
-```bash
-export AGENT_CYA_PLATFORM=opencode
+type Decision = { decision: "allow" | "deny" | "ask"; reason: string };
+
+const runAgentCya = (input: object): Promise<Decision> =>
+  new Promise((resolve) => {
+    const child = spawn("agent-cya", ["review", "--platform", "claude"], {
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+    let out = "";
+    child.stdout.on("data", (c) => (out += c.toString()));
+    child.on("close", () => {
+      try {
+        resolve(JSON.parse(out.trim()));
+      } catch {
+        resolve({ decision: "ask", reason: "agent-cya returned no JSON" });
+      }
+    });
+    child.stdin.end(JSON.stringify(input));
+  });
+
+export const AgentCyaGuard = async () => ({
+  "permission.ask": async (
+    input: { type?: string; pattern?: string },
+    output: { status: "ask" | "deny" | "allow" },
+  ) => {
+    const verdict = await runAgentCya({
+      toolType: input.type ?? "Bash",
+      command: input.pattern ?? "",
+      fileContent: null,
+    });
+    output.status = verdict.decision;
+  },
+});
+```
+
+This uses OpenCode's `permission.ask` hook — the native interception point for permission decisions. Setting `output.status` to `"allow"` / `"deny"` / `"ask"` directly drives OpenCode's permission flow, with no exception-throwing or other workarounds. Adjust the `--platform` arg if you want OpenCode itself (rather than `claude`) to do the reviewing.
+
+Then enable it in your OpenCode config:
+
+```json
+{ "plugins": ["./plugins/agent-cya.ts"] }
 ```
 
 ## CLI
 
 ```
-agent-cya review --platform <platform>
+agent-cya review --platform <platform>          # review a tool call in AgentCYA's input format
+agent-cya hook-claude-code [--platform <p>]     # run as a Claude Code PermissionRequest hook
 ```
 
-| Flag         | Description                                                                 |
-| ------------ | --------------------------------------------------------------------------- |
-| `--platform` | Required. `claude` or `opencode` — which CLI binary to spawn for LLM review |
+| Subcommand         | Purpose                                                                                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `review`           | Reads AgentCYA's native input on stdin, emits `{decision, reason}` JSON. Use this from your own integrations (OpenCode etc.). |
+| `hook-claude-code` | Reads Claude Code's `PermissionRequest` input, emits `hookSpecificOutput` JSON, exits 2 on deny. Wire this up directly.       |
+
+`--platform` is `claude` (default for `hook-claude-code`) or `opencode` — which CLI binary spawns for LLM review.
 
 ## Input/Output Format
 
@@ -125,19 +175,14 @@ agent-cya review --platform <platform>
 
 ```
 src/
-├── main.ts        # Entry point: imports program from cli.ts, calls program.parse()
-├── cli.ts         # Commander.js CLI, stdin parse → hard deny → enrich → LLM → stdout JSON
-├── rules.ts       # Hardcoded deny regex patterns, evaluateHardDeny()
-├── file-enrich.ts # For Bash commands that run a script, reads file contents from disk
-├── prompt.ts      # buildSystemPrompt() + buildUserPrompt() with XML sections
-├── llm.ts         # Spawns claude/opencode CLI binary, 90s timeout, JSON extractor
-└── audit-log.ts   # Always-on JSON-lines writer at ~/.agent-cya/audit.log
-```
-
-```
-hooks/
-├── claude-hook.sh     # Claude Code PermissionRequest adapter (jq transform, exit 2 on deny)
-└── opencode-plugin.ts # OpenCode tool.execute.before plugin (30s spawn timeout)
+├── main.ts             # Entry point: imports program from cli.ts, calls program.parse()
+├── cli.ts              # Commander.js CLI, dispatches to review / hook-claude-code
+├── hook-claude-code.ts # Claude Code PermissionRequest adapter (input/output transforms)
+├── rules.ts            # Hardcoded deny regex patterns, evaluateHardDeny()
+├── file-enrich.ts      # For Bash commands that run a script, reads file contents from disk
+├── prompt.ts           # buildSystemPrompt() + buildUserPrompt() with XML sections
+├── llm.ts              # Spawns claude/opencode CLI binary, 90s timeout, retry, JSON extractor
+└── audit-log.ts        # JSON-lines writer at ~/.agent-cya/audit.log with size-cap rotation
 ```
 
 Key design decisions:
