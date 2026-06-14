@@ -46,4 +46,10 @@ jobs:
       # `npm publish` below — that's the local tsc build we want.
       - run: npm ci --ignore-scripts
 
-      - run: npm publish --provenance --access public
+      # --tag alpha is required because release-please cuts prereleases
+      # (0.x.y-alpha.N) and npm 11+ refuses to default prereleases to
+      # the 'latest' dist-tag. This also keeps `npm install agent-cya`
+      # pointing at the most recent STABLE release (when one exists)
+      # rather than auto-installing alphas. Consumers opt into alphas
+      # explicitly with `npm install agent-cya@alpha`.
+      - run: npm publish --provenance --access public --tag alpha
