@@ -47,12 +47,12 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ike18t/agent-cya.git"
+    "url": "git+https://github.com/ike18t/Agent-CYA.git"
   },
   "bugs": {
-    "url": "https://github.com/ike18t/agent-cya/issues"
+    "url": "https://github.com/ike18t/Agent-CYA/issues"
   },
-  "homepage": "https://github.com/ike18t/agent-cya#readme",
+  "homepage": "https://github.com/ike18t/Agent-CYA#readme",
   "publishConfig": {
     "access": "public",
     "provenance": true
