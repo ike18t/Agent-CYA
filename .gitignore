@@ -1,4 +1,6 @@
 node_modules/
+dist/
+*.tgz
 bin/agent-cya.js
 .codegraph
 .opencode/

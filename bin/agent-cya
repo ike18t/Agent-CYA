@@ -1,3 +1,9 @@
 #!/usr/bin/env bash
-export NODE_NO_WARNINGS=1
-exec node "$(dirname "$0")/../src/main.ts" "$@"
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+exec node "$DIR/../dist/main.js" "$@"

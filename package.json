@@ -1,19 +1,29 @@
 {
   "name": "agent-cya",
-  "version": "1.0.0",
-  "description": "CLI that reviews AI coding assistant tool calls (Claude Code, OpenCode) before execution via hooks",
+  "version": "0.1.0-alpha.1",
+  "description": "CLI that reviews AI coding harness tool calls (Claude Code, OpenCode) before execution via hooks",
   "type": "module",
-  "main": "src/cli.ts",
+  "main": "dist/cli.js",
   "bin": {
     "agent-cya": "./bin/agent-cya"
   },
   "files": [
     "bin/",
-    "src/",
-    "!src/**/*.test.ts"
+    "dist/"
+  ],
+  "exports": {
+    "./opencode": "./dist/opencode-plugin.js",
+    "./package.json": "./package.json"
+  },
+  "keywords": [
+    "opencode-plugin",
+    "claude-code",
+    "permission"
   ],
   "scripts": {
-    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
     "test": "vitest run",
     "lint": "tsc --noEmit && eslint . && prettier . --check && knip",
     "lint:fix": "eslint . --fix && prettier . --write ."
@@ -22,6 +32,7 @@
     "commander": "^12.1.0"
   },
   "devDependencies": {
+    "@opencode-ai/plugin": "^1.17.4",
     "@types/node": "^24.0.1",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
@@ -32,8 +43,20 @@
     "typescript-eslint": "^8.60.1",
     "vitest": "^3.1.2"
   },
-  "author": "",
+  "author": "Isaac Datlof",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ike18t/agent-cya.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ike18t/agent-cya/issues"
+  },
+  "homepage": "https://github.com/ike18t/agent-cya#readme",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "engines": {
     "node": ">=23.9"
   }
