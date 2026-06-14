@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.2.1-alpha.1...agent-cya-v0.2.2-alpha.1) (2026-06-14)
+
+
+### Build
+
+* **deps-dev:** bump @opencode-ai/plugin from 1.17.4 to 1.17.6 ([414c0b6](https://github.com/ike18t/Agent-CYA/commit/414c0b6595e28c618cb089242ea216e55b84589b))
+
 ## [0.2.1-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.2.0-alpha.1...agent-cya-v0.2.1-alpha.1) (2026-06-14)
 
 
