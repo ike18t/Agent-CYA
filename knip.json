@@ -1,3 +1,6 @@
 {
-  "entry": ["src/main.ts"]
+  "entry": ["src/main.ts"],
+  "ignoreIssues": {
+    "src/opencode-plugin.ts": ["duplicates"]
+  }
 }
