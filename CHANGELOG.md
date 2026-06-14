@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.2.2-alpha.1...agent-cya-v0.2.3-alpha.1) (2026-06-14)
+
+
+### Build
+
+* **deps-dev:** bump eslint-plugin-functional from 9.0.5 to 10.0.0 ([303b32e](https://github.com/ike18t/Agent-CYA/commit/303b32e5270d935fea8c86739c45b7db7d635e6d))
+
 ## [0.2.2-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.2.1-alpha.1...agent-cya-v0.2.2-alpha.1) (2026-06-14)
 
 
