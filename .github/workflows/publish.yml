@@ -33,6 +33,13 @@ jobs:
           # has been a real attack vector. The publish job must read
           # nothing it didn't fetch itself this run.
 
+      # npm trusted publishing OIDC requires npm 11.5+. Node 23.9 ships
+      # with npm 10.x, which has no OIDC code path — without this bump,
+      # setup-node's ${NODE_AUTH_TOKEN} placeholder in .npmrc gets sent
+      # as a literal auth token and the registry rejects with a
+      # 404-disguised auth failure.
+      - run: npm install -g npm@latest
+
       # --ignore-scripts blocks dependency-defined lifecycle hooks during
       # install, so a malicious devDep can't run code on the runner before
       # we mint the OIDC token. Our own `prepack` still runs during
