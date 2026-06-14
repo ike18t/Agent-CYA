@@ -71,7 +71,7 @@ describe("review", () => {
     vi.resetModules();
   });
 
-  it("spawns claude binary for claude platform", async () => {
+  it("spawns claude binary for claude reviewer", async () => {
     const mockSpawn = vi.fn().mockReturnValue({
       stdout: {
         on: (_: string, handler: (data: Buffer) => void) => {
@@ -98,7 +98,7 @@ describe("review", () => {
     );
   });
 
-  it("spawns opencode binary for opencode platform", async () => {
+  it("spawns opencode binary for opencode reviewer", async () => {
     const mockSpawn = vi.fn().mockReturnValue({
       stdout: {
         on: (_: string, handler: (data: Buffer) => void) => {
@@ -295,6 +295,18 @@ describe("review", () => {
       );
       expect(fakeSleep).not.toHaveBeenCalled();
       expect(result).toEqual({ decision: "deny", reason: "destructive" });
+    });
+
+    it("is disabled by default when AGENT_CYA_MIN_ASK_MS is unset", async () => {
+      delete process.env.AGENT_CYA_MIN_ASK_MS;
+      const fakeSleep = vi.fn().mockResolvedValue(undefined);
+      const result = await padAskDecision(
+        { decision: "ask", reason: "unsure" },
+        0,
+        fakeSleep,
+      );
+      expect(fakeSleep).not.toHaveBeenCalled();
+      expect(result.reason).toBe("unsure");
     });
 
     it("is disabled when AGENT_CYA_MIN_ASK_MS is 0", async () => {

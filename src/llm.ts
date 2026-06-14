@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { buildSystemPrompt, buildUserPrompt } from "./prompt.ts";
 import type { ReviewInput } from "./prompt.ts";
+import type { Reviewer } from "./pipeline.ts";
 
 export type LlmDecision = {
   decision: "allow" | "deny" | "ask";
@@ -9,7 +10,7 @@ export type LlmDecision = {
 
 const SPAWN_TIMEOUT_MS = 90_000;
 
-const DEFAULT_MIN_ASK_MS = 60_000;
+const DEFAULT_MIN_ASK_MS = 0;
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -38,8 +39,8 @@ export const padAskDecision = async (
   };
 };
 
-const INVOCATION_FOR_PLATFORM: Record<
-  "claude" | "opencode",
+const INVOCATION_FOR_REVIEWER: Record<
+  Reviewer,
   Readonly<{ binary: string; leadingArgs: readonly string[] }>
 > = {
   claude: { binary: "claude", leadingArgs: ["-p"] },
@@ -215,14 +216,14 @@ const callLlm = async (
 
 export const review = async function review(
   input: Readonly<ReviewInput>,
-  platform: "opencode" | "claude",
+  reviewer: Reviewer,
   spawnFn: typeof spawn = spawn,
   sleepFn: (ms: number) => Promise<void> = sleep,
 ): Promise<LlmDecision> {
-  const invocation = INVOCATION_FOR_PLATFORM[platform];
+  const invocation = INVOCATION_FOR_REVIEWER[reviewer];
   if (!invocation) {
     return padAskDecision(
-      { decision: "ask", reason: `Unknown platform: ${platform}` },
+      { decision: "ask", reason: `Unknown reviewer: ${reviewer}` },
       0,
       sleepFn,
     );

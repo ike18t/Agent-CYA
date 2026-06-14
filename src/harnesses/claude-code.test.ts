@@ -3,7 +3,7 @@ import {
   parseClaudeCodeHookInput,
   formatClaudeCodeHookOutput,
   exitCodeForDecision,
-} from "./hook-claude-code.ts";
+} from "./claude-code.ts";
 
 describe("parseClaudeCodeHookInput", () => {
   it("maps a Bash hook input", () => {

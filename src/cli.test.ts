@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 process.env.AGENT_CYA_MIN_ASK_MS = "0";
-import { parseInput } from "./cli.ts";
 
 vi.mock("node:child_process", () => ({
   spawn: vi.fn(),
 }));
 
-import { runReview } from "./cli.ts";
+vi.mock("./audit-log.ts", () => ({
+  createAuditLogger: () => ({ write: vi.fn() }),
+}));
+
+import { parseInput, runReview } from "./cli.ts";
 import * as childProcess from "node:child_process";
 
 describe("parseInput", () => {
