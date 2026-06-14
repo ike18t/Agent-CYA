@@ -6,7 +6,7 @@ import functional from "eslint-plugin-functional";
 export default defineConfig(
   functional.configs.lite,
   {
-    ignores: [".**/**"],
+    ignores: [".**/**", "dist/**"],
   },
   {
     files: ["src/**/*.ts"],
