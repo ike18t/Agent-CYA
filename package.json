@@ -34,7 +34,7 @@
   "devDependencies": {
     "@opencode-ai/plugin": "^1.17.4",
     "@types/node": "^24.0.1",
-    "eslint": "^9.39.4",
+    "eslint": "^10.5.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-functional": "^9.0.4",
     "knip": "^6.4.1",
