@@ -1,0 +1,23 @@
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+# Just enough to open a release PR and tag a release. No checkout of PR
+# refs, no installs, no third-party scripts — this workflow has nothing
+# for an attacker to land on.
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          # Manifest mode — config and current versions live in
+          # release-please-config.json + .release-please-manifest.json
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

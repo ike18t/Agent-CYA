@@ -1,0 +1,42 @@
+name: publish
+
+# Fires only when release-please publishes a GitHub Release (which it
+# does after its release PR is merged). Never on push, PR, or schedule.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # npm trusted publishing — mints an OIDC token per publish, no NPM_TOKEN
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # The `npm-publish` environment must be configured in
+    # repo Settings → Environments → "npm-publish" with at least one
+    # required reviewer. That turns this into one human click per
+    # release, preventing fully unattended compromise.
+    environment: npm-publish
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          # We checkout the tag release-please made, not main HEAD.
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '23.9'
+          registry-url: 'https://registry.npmjs.org'
+          # No `cache: 'npm'` — a poisoned cache populated by a PR run
+          # has been a real attack vector. The publish job must read
+          # nothing it didn't fetch itself this run.
+
+      # --ignore-scripts blocks dependency-defined lifecycle hooks during
+      # install, so a malicious devDep can't run code on the runner before
+      # we mint the OIDC token. Our own `prepack` still runs during
+      # `npm publish` below — that's the local tsc build we want.
+      - run: npm ci --ignore-scripts
+
+      - run: npm publish --provenance --access public

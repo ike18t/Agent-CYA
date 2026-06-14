@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # Keeps every action's SHA pin fresh. Bumps land as PRs you can review
+  # — pinning a SHA is only meaningful if you also have a way to update it.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

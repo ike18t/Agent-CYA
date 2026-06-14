@@ -1,0 +1,28 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Read-only — CI runs against untrusted PR code, so it must not be able
+# to write anywhere or reach any secret. Anything beyond this is the
+# `pull_request_target` foot-gun.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '23.9'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build
