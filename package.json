@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/cli.js",
   "bin": {
-    "agent-cya": "./bin/agent-cya"
+    "agent-cya": "bin/agent-cya"
   },
   "files": [
     "bin/",
