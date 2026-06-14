@@ -15,11 +15,11 @@ Node 23.9+ required for native `.ts` execution.
 
 ## Commands
 
-| Command                                                                                                             | Purpose                        |
-| ------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `npm test`                                                                                                          | Run all tests                  |
-| `npm run lint`                                                                                                      | tsc + eslint + prettier + knip |
-| `npm test -- src/cli.test.ts`                                                                                       | Run single test file           |
+| Command                                                                                  | Purpose                        |
+| ---------------------------------------------------------------------------------------- | ------------------------------ |
+| `npm test`                                                                               | Run all tests                  |
+| `npm run lint`                                                                           | tsc + eslint + prettier + knip |
+| `npm test -- src/cli.test.ts`                                                            | Run single test file           |
 | `echo '{"toolType":"Bash","command":"ls"}' \| node src/main.ts review --platform claude` | Manual review                  |
 
 ## Critical Gotchas

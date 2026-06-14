@@ -7,3 +7,5 @@ ui/openapi.json
 node_modules/
 .claude/
 evaluations/
+CHANGELOG.md
+plans/

@@ -12,9 +12,7 @@ const program = new Command();
 
 program
   .name("agent-cya")
-  .description(
-    "CLI that reviews AI coding harness tool calls before execution",
-  )
+  .description("CLI that reviews AI coding harness tool calls before execution")
   .version(packageJson.version)
   .addOption(
     new Option("--reviewer <reviewer>", "Reviewer CLI binary")
