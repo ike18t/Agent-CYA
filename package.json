@@ -36,7 +36,7 @@
     "@types/node": "^24.0.1",
     "eslint": "^10.5.0",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-functional": "^9.0.4",
+    "eslint-plugin-functional": "^10.0.0",
     "knip": "^6.4.1",
     "prettier": "^3.8.2",
     "typescript": "^5.8.3",
