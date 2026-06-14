@@ -1,6 +1,6 @@
 {
   "name": "agent-cya",
-  "version": "0.1.0-alpha.1",
+  "version": "0.2.0-alpha.1",
   "description": "CLI that reviews AI coding harness tool calls (Claude Code, OpenCode) before execution via hooks",
   "type": "module",
   "main": "dist/cli.js",
