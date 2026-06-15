@@ -19,7 +19,7 @@ vi.mock("node:os", async () => {
   };
 });
 
-import { loadOpenAIConfig } from "./config.ts";
+import { loadOpenAIConfig, loadConfigFile, harnessReviewer } from "./config.ts";
 
 const writeConfig = (contents: string, mode = 0o600): string => {
   const dir = join(ctx.home, ".agent-cya");
@@ -323,5 +323,141 @@ describe("loadOpenAIConfig", () => {
 
     expect(result).toBeInstanceOf(Error);
     expect((result as Error).message).toMatch(/timed out after 5000ms/);
+  });
+});
+
+describe("loadConfigFile", () => {
+  beforeEach(() => {
+    ctx.home = mkdtempSync(join(tmpdir(), "agent-cya-config-"));
+    buffers.stderr = [];
+    vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      buffers.stderr.push(typeof chunk === "string" ? chunk : chunk.toString());
+      return true;
+    });
+  });
+
+  afterEach(() => {
+    rmSync(ctx.home, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  it("returns undefined when config file is missing", () => {
+    expect(loadConfigFile()).toBeUndefined();
+  });
+
+  it("throws on malformed JSON", () => {
+    writeConfig("not { valid json");
+    expect(() => loadConfigFile()).toThrow(/Malformed JSON/);
+  });
+
+  it("parses a config with only harnesses.opencode.reviewer set", () => {
+    writeConfig(
+      JSON.stringify({ harnesses: { opencode: { reviewer: "claude" } } }),
+    );
+    const config = loadConfigFile();
+    expect(config?.harnesses?.opencode?.reviewer).toBe("claude");
+    expect(config?.reviewers).toBeUndefined();
+  });
+
+  it("parses a config with only reviewers.openai set", () => {
+    writeConfig(
+      JSON.stringify({
+        reviewers: {
+          openai: { baseUrl: "https://x", model: "m", apiKey: "k" },
+        },
+      }),
+    );
+    const config = loadConfigFile();
+    expect(config?.reviewers?.openai?.baseUrl).toBe("https://x");
+    expect(config?.harnesses).toBeUndefined();
+  });
+
+  it("parses a config with both reviewers.openai and harnesses set", () => {
+    writeConfig(
+      JSON.stringify({
+        reviewers: {
+          openai: { baseUrl: "https://x", model: "m", apiKey: "k" },
+        },
+        harnesses: {
+          opencode: { reviewer: "openai" },
+          claudeCode: { reviewer: "claude" },
+        },
+      }),
+    );
+    const config = loadConfigFile();
+    expect(config?.reviewers?.openai?.model).toBe("m");
+    expect(config?.harnesses?.opencode?.reviewer).toBe("openai");
+    expect(config?.harnesses?.claudeCode?.reviewer).toBe("claude");
+  });
+
+  it("throws on invalid reviewer enum value in harnesses.opencode.reviewer", () => {
+    writeConfig(
+      JSON.stringify({ harnesses: { opencode: { reviewer: "foo" } } }),
+    );
+    expect(() => loadConfigFile()).toThrow(
+      /harnesses\.opencode\.reviewer must be one of/,
+    );
+  });
+
+  it("throws on unknown harness key", () => {
+    writeConfig(
+      JSON.stringify({
+        harnesses: { notARealHarness: { reviewer: "claude" } },
+      }),
+    );
+    expect(() => loadConfigFile()).toThrow(/unknown harness "notARealHarness"/);
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "emits permissive-mode warning on Unix",
+    () => {
+      writeConfig(
+        JSON.stringify({
+          reviewers: {
+            openai: { baseUrl: "https://x", model: "m", apiKey: "k" },
+          },
+        }),
+        0o644,
+      );
+      loadConfigFile();
+      const stderr = buffers.stderr.join("");
+      expect(stderr).toContain("[agent-cya] warning:");
+      expect(stderr).toContain("recommend chmod 600");
+    },
+  );
+});
+
+describe("harnessReviewer", () => {
+  beforeEach(() => {
+    ctx.home = mkdtempSync(join(tmpdir(), "agent-cya-config-"));
+  });
+
+  afterEach(() => {
+    rmSync(ctx.home, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  it("returns undefined when config file is missing", () => {
+    expect(harnessReviewer("claudeCode")).toBeUndefined();
+  });
+
+  it("returns undefined when harnesses key is absent", () => {
+    writeConfig(
+      JSON.stringify({
+        reviewers: {
+          openai: { baseUrl: "https://x", model: "m", apiKey: "k" },
+        },
+      }),
+    );
+    expect(harnessReviewer("claudeCode")).toBeUndefined();
+  });
+
+  it("returns the configured reviewer when set", () => {
+    writeConfig(
+      JSON.stringify({
+        harnesses: { claudeCode: { reviewer: "openai" } },
+      }),
+    );
+    expect(harnessReviewer("claudeCode")).toBe("openai");
   });
 });

@@ -3,6 +3,8 @@ import { readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import type { Reviewer } from "../pipeline.ts";
+
 export type OpenAIReviewerConfig = Readonly<{
   baseUrl: string;
   model: string;
@@ -16,7 +18,26 @@ type RawOpenAIConfig = Readonly<{
   apiKeyCmd?: string;
 }>;
 
+export type HarnessKey = "opencode" | "claudeCode";
+
+export type Config = Readonly<{
+  reviewers?: Readonly<{ openai?: RawOpenAIConfig }>;
+  harnesses?: Readonly<
+    Partial<Record<HarnessKey, Readonly<{ reviewer?: Reviewer }>>>
+  >;
+}>;
+
 const API_KEY_CMD_TIMEOUT_MS = 5_000;
+
+const VALID_REVIEWERS: ReadonlyArray<Reviewer> = [
+  "claude",
+  "opencode",
+  "openai",
+];
+const VALID_HARNESS_KEYS: ReadonlyArray<HarnessKey> = [
+  "opencode",
+  "claudeCode",
+];
 
 const configPath = (): string => join(homedir(), ".agent-cya", "config.json");
 
@@ -57,38 +78,6 @@ const validateOpenAISection = (raw: unknown, path: string): RawOpenAIConfig => {
   };
 };
 
-const parseConfigFile = (path: string): RawOpenAIConfig => {
-  const contents = ((): string => {
-    try {
-      return readFileSync(path, "utf-8");
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to read config at ${path}: ${message}`);
-    }
-  })();
-
-  const parsed = ((): unknown => {
-    try {
-      return JSON.parse(contents);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`Malformed JSON in config at ${path}: ${message}`);
-    }
-  })();
-
-  if (!isRecord(parsed)) {
-    throw new Error(`${path}: config root must be an object`);
-  }
-  const reviewers = parsed.reviewers;
-  if (!isRecord(reviewers)) {
-    throw new Error(`${path}: missing 'reviewers' object`);
-  }
-  if (!("openai" in reviewers)) {
-    throw new Error(`${path}: missing 'reviewers.openai' section`);
-  }
-  return validateOpenAISection(reviewers.openai, path);
-};
-
 const warnIfPermissive = (path: string): void => {
   if (process.platform === "win32") return;
   try {
@@ -104,6 +93,101 @@ const warnIfPermissive = (path: string): void => {
     // any racey failures here so warnings never block config loading.
   }
 };
+
+export const loadConfigFile = (): Config | undefined => {
+  const path = configPath();
+
+  const contents = ((): string | undefined => {
+    try {
+      return readFileSync(path, "utf-8");
+    } catch (err) {
+      if (
+        err instanceof Error &&
+        (err as NodeJS.ErrnoException).code === "ENOENT"
+      ) {
+        return undefined;
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to read config at ${path}: ${message}`);
+    }
+  })();
+
+  if (contents === undefined) return undefined;
+
+  const parsed = ((): unknown => {
+    try {
+      return JSON.parse(contents);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Malformed JSON in config at ${path}: ${message}`);
+    }
+  })();
+
+  if (!isRecord(parsed)) {
+    throw new Error(`${path}: config root must be an object`);
+  }
+
+  const reviewers: Config["reviewers"] | undefined = (():
+    | Config["reviewers"]
+    | undefined => {
+    if (!("reviewers" in parsed)) return undefined;
+    if (!isRecord(parsed.reviewers)) {
+      throw new Error(`${path}: reviewers must be an object`);
+    }
+    const openai =
+      "openai" in parsed.reviewers
+        ? validateOpenAISection(parsed.reviewers.openai, path)
+        : undefined;
+    return openai !== undefined ? { openai } : {};
+  })();
+
+  const harnesses: Config["harnesses"] | undefined = (():
+    | Config["harnesses"]
+    | undefined => {
+    if (!("harnesses" in parsed)) return undefined;
+    if (!isRecord(parsed.harnesses)) {
+      throw new Error(`${path}: harnesses must be an object`);
+    }
+    const harnessesRaw = parsed.harnesses;
+    return Object.keys(harnessesRaw).reduce<
+      Partial<Record<HarnessKey, Readonly<{ reviewer?: Reviewer }>>>
+    >((acc, key) => {
+      if (!VALID_HARNESS_KEYS.includes(key as HarnessKey)) {
+        throw new Error(
+          `${path}: unknown harness "${key}" in harnesses (expected one of "opencode", "claudeCode")`,
+        );
+      }
+      const harnessKey = key as HarnessKey;
+      const harnessVal = harnessesRaw[key];
+      if (!isRecord(harnessVal)) {
+        throw new Error(`${path}: harnesses.${key} must be an object`);
+      }
+      const reviewer = ((): Reviewer | undefined => {
+        if (!("reviewer" in harnessVal)) return undefined;
+        if (!VALID_REVIEWERS.includes(harnessVal.reviewer as Reviewer)) {
+          throw new Error(
+            `${path}: harnesses.${key}.reviewer must be one of "claude", "opencode", "openai" (got ${String(harnessVal.reviewer)})`,
+          );
+        }
+        return harnessVal.reviewer as Reviewer;
+      })();
+      return {
+        ...acc,
+        [harnessKey]: reviewer !== undefined ? { reviewer } : {},
+      };
+    }, {});
+  })();
+
+  warnIfPermissive(path);
+
+  return {
+    ...(reviewers !== undefined && { reviewers }),
+    ...(harnesses !== undefined && { harnesses }),
+  };
+};
+
+export const harnessReviewer = (harness: HarnessKey): Reviewer | undefined =>
+  loadConfigFile()?.harnesses?.[harness]?.reviewer;
 
 /* eslint-disable functional/immutable-data -- callback-based spawn needs mutable accumulator */
 const runApiKeyCmd = (
@@ -180,8 +264,20 @@ export const loadOpenAIConfig = async (
   spawnFn: typeof spawn = spawn,
 ): Promise<OpenAIReviewerConfig> => {
   const path = configPath();
-  const raw = parseConfigFile(path);
-  warnIfPermissive(path);
+  const config = loadConfigFile();
+
+  if (config === undefined) {
+    throw new Error(`Failed to read config at ${path}: file not found`);
+  }
+
+  if (!isRecord(config.reviewers)) {
+    throw new Error(`${path}: missing 'reviewers' object`);
+  }
+
+  const raw = config.reviewers.openai;
+  if (!raw) {
+    throw new Error(`${path}: missing 'reviewers.openai' section`);
+  }
 
   const resolvedApiKey = raw.apiKeyCmd
     ? await runApiKeyCmd(raw.apiKeyCmd, spawnFn)
