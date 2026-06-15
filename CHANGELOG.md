@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.0-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.3.1-alpha.1...agent-cya-v0.4.0-alpha.1) (2026-06-15)
+
+
+### Features
+
+* **bash-ast:** parse bash commands into a domain AST ([becc257](https://github.com/ike18t/Agent-CYA/commit/becc2576032371adab8efbdd447d51010e506e8b))
+* **deps:** add tree-sitter and tree-sitter-bash ([917e03b](https://github.com/ike18t/Agent-CYA/commit/917e03bb51780baa991d736bebe6d1e808d4a39b))
+* **rules:** add 18 flag-aware structural rules ([f5f6377](https://github.com/ike18t/Agent-CYA/commit/f5f637730a2c79614735ad21f87c0b41046146ac))
+
+
+### Bug Fixes
+
+* **bash-ast:** descend into redirected_statement bodies ([bf4246c](https://github.com/ike18t/Agent-CYA/commit/bf4246c906280f05e9b11b45c3ddeed4f53832f7))
+* **rules:** close known follow-ups from review ([194d952](https://github.com/ike18t/Agent-CYA/commit/194d95266f69fdc5a0c07569922970315489cb3d))
+
+
+### Refactoring
+
+* **rules:** replace regex with structural AST predicates ([026ef61](https://github.com/ike18t/Agent-CYA/commit/026ef612201242535eed9cf8a7e86867e93824a6))
+
 ## [0.3.1-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.3.0-alpha.1...agent-cya-v0.3.1-alpha.1) (2026-06-15)
 
 
