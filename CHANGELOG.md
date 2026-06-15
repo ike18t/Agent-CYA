@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.5.1-alpha.1...agent-cya-v0.6.0-alpha.1) (2026-06-15)
+
+
+### Features
+
+* **suggest:** add agent-cya suggest subcommand ([b9deb9d](https://github.com/ike18t/Agent-CYA/commit/b9deb9dda2d39b13f46907d53ac8cb2734ffb4f6))
+
+
+### Bug Fixes
+
+* **audit-log:** point createAuditLogger tests at tmpdir to stop polluting ~/.agent-cya/audit.log ([1aa4d43](https://github.com/ike18t/Agent-CYA/commit/1aa4d4315e51b4f118365204a23e67527af1e6f9))
+
 ## [0.5.1-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.5.0-alpha.1...agent-cya-v0.5.1-alpha.1) (2026-06-15)
 
 
