@@ -12,17 +12,22 @@ import * as auditLog from "./audit-log.ts";
 
 describe("createAuditLogger", () => {
   it("writes entry without throwing", () => {
-    const logger = auditLog.createAuditLogger();
-    const entry: auditLog.AuditEntry = {
-      timestamp: "2026-01-01T00:00:00.000Z",
-      tool: "Bash",
-      command: "ls",
-      decision: "ask",
-      reason: "pending review",
-      source: "llm",
-      reviewer: "claude",
-    };
-    expect(() => logger.write(entry)).not.toThrow();
+    const dir = mkdtempSync(join(tmpdir(), "agent-cya-audit-"));
+    try {
+      const logger = auditLog.createAuditLogger(join(dir, "audit.log"));
+      const entry: auditLog.AuditEntry = {
+        timestamp: "2026-01-01T00:00:00.000Z",
+        tool: "Bash",
+        command: "ls",
+        decision: "ask",
+        reason: "pending review",
+        source: "llm",
+        reviewer: "claude",
+      };
+      expect(() => logger.write(entry)).not.toThrow();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("entry shape contains expected fields", () => {
@@ -68,17 +73,22 @@ describe("createAuditLogger", () => {
   });
 
   it("never throws on write failure", () => {
-    const logger = auditLog.createAuditLogger();
-    expect(() =>
-      logger.write({
-        timestamp: new Date().toISOString(),
-        tool: "Bash",
-        command: "test",
-        decision: "allow",
-        reason: "ok",
-        source: "rule",
-      }),
-    ).not.toThrow();
+    const dir = mkdtempSync(join(tmpdir(), "agent-cya-audit-"));
+    try {
+      const logger = auditLog.createAuditLogger(join(dir, "audit.log"));
+      expect(() =>
+        logger.write({
+          timestamp: new Date().toISOString(),
+          tool: "Bash",
+          command: "test",
+          decision: "allow",
+          reason: "ok",
+          source: "rule",
+        }),
+      ).not.toThrow();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("writes json-lines to file", () => {
