@@ -15,9 +15,11 @@ program
   .description("CLI that reviews AI coding harness tool calls before execution")
   .version(packageJson.version)
   .addOption(
-    new Option("--reviewer <reviewer>", "LLM Reviewer")
-      .choices(["claude", "opencode", "openai"])
-      .default("claude"),
+    new Option("--reviewer <reviewer>", "LLM Reviewer").choices([
+      "claude",
+      "opencode",
+      "openai",
+    ]),
   )
   .addOption(
     new Option(
@@ -85,7 +87,8 @@ program
   .description("Review a tool call from stdin (agent-cya input format)")
   .action(async (_options, command: Command) => {
     const globals = command.optsWithGlobals();
-    const reviewer = globals.reviewer as Reviewer;
+    const flagReviewer = globals.reviewer as Reviewer | undefined;
+    const reviewer = flagReviewer ?? "claude";
     const minAskMs = globals.minAskMs as number;
     const stdin = await readStdin();
     const exitCode = await runReview(stdin, reviewer, minAskMs);

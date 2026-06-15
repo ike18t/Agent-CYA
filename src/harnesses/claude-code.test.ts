@@ -1,9 +1,17 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   parseClaudeCodeHookInput,
   formatClaudeCodeHookOutput,
   exitCodeForDecision,
+  resolveHookReviewer,
 } from "./claude-code.ts";
+import { harnessReviewer } from "../reviewers/config.ts";
+
+vi.mock("../reviewers/config.ts", () => ({
+  harnessReviewer: vi.fn(),
+}));
+
+const harnessReviewerMock = vi.mocked(harnessReviewer);
 
 describe("parseClaudeCodeHookInput", () => {
   it("maps a Bash hook input", () => {
@@ -116,5 +124,26 @@ describe("exitCodeForDecision", () => {
   });
   it("returns 0 for ask", () => {
     expect(exitCodeForDecision({ decision: "ask", reason: "" })).toBe(0);
+  });
+});
+
+describe("resolveHookReviewer", () => {
+  beforeEach(() => {
+    harnessReviewerMock.mockReset();
+  });
+
+  it("returns the flag value when flag is set, even if harness config is also set", () => {
+    harnessReviewerMock.mockReturnValue("openai");
+    expect(resolveHookReviewer("claude")).toBe("claude");
+  });
+
+  it("returns the harness config value when flag is undefined", () => {
+    harnessReviewerMock.mockReturnValue("openai");
+    expect(resolveHookReviewer(undefined)).toBe("openai");
+  });
+
+  it("returns 'claude' default when both flag and harness config are absent", () => {
+    harnessReviewerMock.mockReturnValue(undefined);
+    expect(resolveHookReviewer(undefined)).toBe("claude");
   });
 });

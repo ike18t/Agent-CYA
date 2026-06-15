@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import type { ReviewInput } from "../reviewers/prompt.ts";
 import type { LlmDecision } from "../reviewers/parse.ts";
 import { evaluate, type Reviewer } from "../pipeline.ts";
+import { harnessReviewer } from "../reviewers/config.ts";
 
 type ClaudeCodeHookInput = Readonly<{
   tool_name?: string;
@@ -71,6 +72,10 @@ export const formatClaudeCodeHookOutput = (
 export const exitCodeForDecision = (decision: Readonly<LlmDecision>): number =>
   decision.decision === "deny" ? 2 : 0;
 
+export const resolveHookReviewer = (
+  flagReviewer: Reviewer | undefined,
+): Reviewer => flagReviewer ?? harnessReviewer("claudeCode") ?? "claude";
+
 /* eslint-disable functional/no-let, functional/no-loop-statements -- for await is the only stack-safe way to read stdin */
 const readStdin = async (): Promise<string> => {
   let acc = "";
@@ -110,7 +115,8 @@ export const registerHookCommand = (parent: Command): void => {
     )
     .action(async (_options, command: Command) => {
       const globals = command.optsWithGlobals();
-      const reviewer = globals.reviewer as Reviewer;
+      const flagReviewer = globals.reviewer as Reviewer | undefined;
+      const reviewer = resolveHookReviewer(flagReviewer);
       const minAskMs = globals.minAskMs as number;
       const stdin = await readStdin();
       const exitCode = await runHook(stdin, reviewer, minAskMs);
