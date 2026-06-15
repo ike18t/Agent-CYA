@@ -4,14 +4,20 @@ vi.mock("../pipeline.ts", () => ({
   evaluate: vi.fn(),
 }));
 
+vi.mock("../reviewers/config.ts", () => ({
+  safeHarnessReviewer: vi.fn(),
+}));
+
 import {
   createAgentCyaPlugin,
   AgentCya,
   default as DefaultExport,
 } from "./opencode-plugin.ts";
 import { evaluate } from "../pipeline.ts";
+import { safeHarnessReviewer } from "../reviewers/config.ts";
 
 const evaluateMock = vi.mocked(evaluate);
+const harnessReviewerMock = vi.mocked(safeHarnessReviewer);
 
 const invokePlugin = async (
   plugin: ReturnType<typeof createAgentCyaPlugin>,
@@ -45,6 +51,8 @@ describe("createAgentCyaPlugin", () => {
       source: "llm",
       reviewer: "claude",
     });
+    harnessReviewerMock.mockReset();
+    harnessReviewerMock.mockReturnValue(undefined);
   });
 
   it("invoking the factory yields a hooks object with permission.ask", async () => {
@@ -61,7 +69,7 @@ describe("createAgentCyaPlugin", () => {
     expect(evaluateMock).toHaveBeenCalledTimes(1);
     expect(evaluateMock).toHaveBeenCalledWith(
       { toolType: "Bash", command: "ls -la", fileContent: null },
-      "claude",
+      "opencode",
       0,
     );
     expect(output.status).toBe("allow");
@@ -75,7 +83,7 @@ describe("createAgentCyaPlugin", () => {
 
     expect(evaluateMock).toHaveBeenCalledWith(
       { toolType: "Bash", command: "", fileContent: null },
-      "claude",
+      "opencode",
       0,
     );
   });
@@ -95,7 +103,7 @@ describe("createAgentCyaPlugin", () => {
 
     expect(evaluateMock).toHaveBeenCalledWith(
       { toolType: "Bash", command: "", fileContent: null },
-      "claude",
+      "opencode",
       0,
     );
   });
@@ -159,6 +167,81 @@ describe("createAgentCyaPlugin", () => {
     );
     expect(output.status).toBe("allow");
   });
+
+  it("factory arg wins over harness config", async () => {
+    harnessReviewerMock.mockReturnValue("openai");
+
+    const hooks = await invokePlugin(
+      createAgentCyaPlugin({ reviewer: "claude" }),
+    );
+    const output = { status: "ask" as "ask" | "deny" | "allow" };
+
+    await callPermissionAsk(hooks, { type: "Bash", pattern: "ls" }, output);
+
+    expect(evaluateMock).toHaveBeenCalledWith(
+      { toolType: "Bash", command: "ls", fileContent: null },
+      "claude",
+      0,
+    );
+  });
+
+  it("harness config used when factory arg absent", async () => {
+    harnessReviewerMock.mockReturnValue("openai");
+
+    const hooks = await invokePlugin(createAgentCyaPlugin());
+    const output = { status: "ask" as "ask" | "deny" | "allow" };
+
+    await callPermissionAsk(hooks, { type: "Bash", pattern: "ls" }, output);
+
+    expect(evaluateMock).toHaveBeenCalledWith(
+      { toolType: "Bash", command: "ls", fileContent: null },
+      "openai",
+      0,
+    );
+  });
+
+  it("built-in default used when both factory arg and harness config absent", async () => {
+    harnessReviewerMock.mockReturnValue(undefined);
+
+    const hooks = await invokePlugin(createAgentCyaPlugin());
+    const output = { status: "ask" as "ask" | "deny" | "allow" };
+
+    await callPermissionAsk(hooks, { type: "Bash", pattern: "ls" }, output);
+
+    expect(evaluateMock).toHaveBeenCalledWith(
+      { toolType: "Bash", command: "ls", fileContent: null },
+      "opencode",
+      0,
+    );
+  });
+
+  it("harnessReviewer is called once per plugin instance, not once per permission.ask invocation", async () => {
+    harnessReviewerMock.mockReturnValue(undefined);
+
+    const hooks = await invokePlugin(createAgentCyaPlugin());
+    const output = { status: "ask" as "ask" | "deny" | "allow" };
+
+    await callPermissionAsk(hooks, { type: "Bash", pattern: "ls" }, output);
+    await callPermissionAsk(hooks, { type: "Bash", pattern: "pwd" }, output);
+
+    expect(harnessReviewerMock.mock.calls.length).toBe(1);
+  });
+
+  it("falls back to 'opencode' default and still loads when safeHarnessReviewer returns undefined due to a config error", async () => {
+    // safeHarnessReviewer returns undefined (swallowing the internal error) when config is broken
+    harnessReviewerMock.mockReturnValue(undefined);
+
+    const hooks = await invokePlugin(createAgentCyaPlugin());
+    const output = { status: "ask" as "ask" | "deny" | "allow" };
+
+    await callPermissionAsk(hooks, { type: "Bash", pattern: "ls" }, output);
+
+    expect(evaluateMock).toHaveBeenCalledWith(
+      { toolType: "Bash", command: "ls", fileContent: null },
+      "opencode",
+      0,
+    );
+  });
 });
 
 describe("AgentCya default instance", () => {
@@ -169,6 +252,8 @@ describe("AgentCya default instance", () => {
       source: "llm",
       reviewer: "claude",
     });
+    harnessReviewerMock.mockReset();
+    harnessReviewerMock.mockReturnValue(undefined);
   });
 
   it("default export equals the AgentCya named export", () => {

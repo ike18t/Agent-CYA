@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cdn.jsdelivr.net/npm/agent-cya/config.schema.json",
   "title": "AgentCYA config",
-  "description": "Schema for ~/.agent-cya/config.json. Add \"$schema\": \"https://cdn.jsdelivr.net/npm/agent-cya/config.schema.json\" at the top of your config to get editor autocomplete and validation.",
+  "description": "Schema for ~/.agent-cya/config.json. Add \"$schema\": \"https://cdn.jsdelivr.net/npm/agent-cya/config.schema.json\" at the top of your config to get editor autocomplete and validation. Optionally override the reviewer per harness via the 'harnesses' block.",
   "type": "object",
   "properties": {
     "$schema": {
@@ -44,10 +44,30 @@
           "additionalProperties": false
         }
       },
-      "required": ["openai"],
+      "additionalProperties": false
+    },
+    "harnesses": {
+      "type": "object",
+      "description": "Per-harness reviewer overrides. Each harness (e.g. opencode, claudeCode) can specify which reviewer to use, overriding the harness's built-in default. Falls back to the built-in default when absent.",
+      "properties": {
+        "opencode": { "$ref": "#/definitions/harnessOverride" },
+        "claudeCode": { "$ref": "#/definitions/harnessOverride" }
+      },
       "additionalProperties": false
     }
   },
-  "required": ["reviewers"],
+  "definitions": {
+    "harnessOverride": {
+      "type": "object",
+      "description": "Per-harness reviewer override. The 'reviewer' field, if set, overrides the harness's built-in default (claude for Claude Code hook, opencode for OpenCode plugin).",
+      "properties": {
+        "reviewer": {
+          "enum": ["claude", "opencode", "openai"],
+          "description": "Which reviewer this harness should use. Overrides the harness's built-in default. The --reviewer CLI flag, when passed, still wins over this."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
   "additionalProperties": false
 }

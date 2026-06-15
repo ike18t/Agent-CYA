@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { reviewViaOpenAI } from "./openai.ts";
 import type { OpenAIReviewerConfig } from "./config.ts";
 import type { ReviewInput } from "./prompt.ts";
@@ -26,10 +26,6 @@ const okResponse = (content: string): Response =>
   );
 
 describe("reviewViaOpenAI", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
   afterEach(() => {
     vi.useRealTimers();
   });

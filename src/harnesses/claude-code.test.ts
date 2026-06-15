@@ -1,9 +1,17 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   parseClaudeCodeHookInput,
   formatClaudeCodeHookOutput,
   exitCodeForDecision,
+  resolveHookReviewer,
 } from "./claude-code.ts";
+import { safeHarnessReviewer } from "../reviewers/config.ts";
+
+vi.mock("../reviewers/config.ts", () => ({
+  safeHarnessReviewer: vi.fn(),
+}));
+
+const harnessReviewerMock = vi.mocked(safeHarnessReviewer);
 
 describe("parseClaudeCodeHookInput", () => {
   it("maps a Bash hook input", () => {
@@ -116,5 +124,42 @@ describe("exitCodeForDecision", () => {
   });
   it("returns 0 for ask", () => {
     expect(exitCodeForDecision({ decision: "ask", reason: "" })).toBe(0);
+  });
+});
+
+describe("resolveHookReviewer", () => {
+  const stderrLines: string[] = [];
+
+  beforeEach(() => {
+    harnessReviewerMock.mockReset();
+    stderrLines.length = 0;
+    vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      stderrLines.push(typeof chunk === "string" ? chunk : chunk.toString());
+      return true;
+    });
+  });
+
+  it("returns the flag value when flag is set, even if harness config is also set", () => {
+    harnessReviewerMock.mockReturnValue("openai");
+    expect(resolveHookReviewer("claude")).toBe("claude");
+  });
+
+  it("returns the harness config value when flag is undefined", () => {
+    harnessReviewerMock.mockReturnValue("openai");
+    expect(resolveHookReviewer(undefined)).toBe("openai");
+  });
+
+  it("returns 'claude' default when both flag and harness config are absent", () => {
+    harnessReviewerMock.mockReturnValue(undefined);
+    expect(resolveHookReviewer(undefined)).toBe("claude");
+  });
+
+  it("falls back to 'claude' and emits stderr when safeHarnessReviewer throws due to broken config", () => {
+    harnessReviewerMock.mockImplementation(() => {
+      process.stderr.write("[agent-cya] config: bad\n");
+      return undefined;
+    });
+    expect(resolveHookReviewer(undefined)).toBe("claude");
+    expect(stderrLines.join("")).toContain("[agent-cya] config: bad");
   });
 });
