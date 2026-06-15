@@ -62,6 +62,8 @@ The hook only fires when Claude Code would otherwise prompt for permission — a
 >
 > Pass `--min-ask-ms <ms>` (e.g. `--min-ask-ms 30000` for 30s) to hold `ask` decisions open long enough to actually read. Allows and denies still return as fast as the LLM does. Make sure the hook `timeout` (seconds) exceeds `--min-ask-ms / 1000` plus your LLM's worst-case review time.
 
+To use a different reviewer for this hook (e.g. `openai`), see [Per-harness reviewer override](#per-harness-reviewer-override).
+
 ## Setup — OpenCode
 
 ```bash
@@ -76,6 +78,8 @@ npm install agent-cya
 The plugin's `permission.ask` handler emits the AgentCYA decision directly as OpenCode's `output.status` — same review pipeline as the CLI hook, in-process (no spawn, no JSON parsing).
 
 > ⚠️ **Upstream caveat:** OpenCode currently gates `permission.ask` so it doesn't fire for first-encounter commands or in non-interactive `opencode run` sessions, which means the AgentCYA decision never lands. The plugin loads fine and works when invoked directly; this is tracked at [anomalyco/opencode#19927](https://github.com/anomalyco/opencode/issues/19927). Once OpenCode forwards every permission ask to plugins, the integration works as documented.
+
+To use a different reviewer for the plugin (e.g. `openai`), see [Per-harness reviewer override](#per-harness-reviewer-override).
 
 ## Configuration
 
@@ -151,6 +155,33 @@ Examples:
   ```
 
 The helper command runs with `shell: true` and a 5-second timeout. Its stderr is surfaced in error messages.
+
+### Per-harness reviewer override
+
+By default, each harness uses a sensible reviewer for its environment — the Claude Code hook uses `claude`, the OpenCode plugin uses `opencode`. To override per harness, add a `harnesses` block to `~/.agent-cya/config.json`:
+
+```json
+{
+  "$schema": "https://cdn.jsdelivr.net/npm/agent-cya/config.schema.json",
+  "reviewers": {
+    "openai": { "baseUrl": "...", "model": "...", "apiKey": "..." }
+  },
+  "harnesses": {
+    "opencode": { "reviewer": "openai" },
+    "claudeCode": { "reviewer": "openai" }
+  }
+}
+```
+
+The override only applies to the matching harness. The `reviewers` block is only needed when one of the overrides uses `openai`.
+
+**Precedence** (highest wins):
+
+1. The `--reviewer` flag on the CLI (e.g. `agent-cya --reviewer claude hook claude-code`).
+2. `harnesses.<harness>.reviewer` from the config file.
+3. The harness's built-in default (`claude` for the Claude Code hook, `opencode` for the OpenCode plugin).
+
+Raw `agent-cya review` (without a harness) ignores `harnesses.*` — pass `--reviewer` to override its `claude` default.
 
 ### Using a local model as the reviewer
 
