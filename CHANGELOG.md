@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.2.3-alpha.1...agent-cya-v0.3.0-alpha.1) (2026-06-15)
+
+
+### Features
+
+* add --reviewer openai for OpenAI-compatible HTTP endpoints ([21e315c](https://github.com/ike18t/Agent-CYA/commit/21e315c2faf972355df6be4153db8dad1cdc60f0))
+* **audit:** record which reviewer made the decision ([25b9c50](https://github.com/ike18t/Agent-CYA/commit/25b9c50c170296c3a5708ff81e402b1363afa50a))
+
+
+### Refactoring
+
+* group harnesses/ and reviewers/ under their own dirs ([c878580](https://github.com/ike18t/Agent-CYA/commit/c8785804893defbbef23c6e09bf41569ac188bec))
+
+
+### Documentation
+
+* rewrite README for consumers; move dev/maintainer content to AGENTS ([96cb538](https://github.com/ike18t/Agent-CYA/commit/96cb538ce000b3ee9d57f5a4e6b4a1557475b9bd))
+
 ## [0.2.3-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.2.2-alpha.1...agent-cya-v0.2.3-alpha.1) (2026-06-14)
 
 
