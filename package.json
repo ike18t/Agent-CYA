@@ -30,7 +30,9 @@
     "lint:fix": "eslint . --fix && prettier . --write ."
   },
   "dependencies": {
-    "commander": "^12.1.0"
+    "commander": "^12.1.0",
+    "tree-sitter": "^0.21.1",
+    "tree-sitter-bash": "^0.23.3"
   },
   "devDependencies": {
     "@opencode-ai/plugin": "^1.17.4",
