@@ -6,6 +6,8 @@ vi.mock("node:child_process", () => ({
 
 vi.mock("./audit-log.ts", () => ({
   createAuditLogger: () => ({ write: vi.fn() }),
+  readAuditEntries: async function* () {},
+  DEFAULT_AUDIT_LOG: "/tmp/agent-cya-test-audit.log",
 }));
 
 import { parseInput, runReview } from "./cli.ts";

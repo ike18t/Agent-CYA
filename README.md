@@ -218,6 +218,7 @@ Cloud and hosted services (OpenAI, Together, Groq, Mistral, etc.) work identical
 ```
 agent-cya [--reviewer <reviewer>] review              # review a tool call (stdin JSON)
 agent-cya [--reviewer <reviewer>] hook claude-code    # Claude Code PermissionRequest hook
+agent-cya suggest                                     # surface candidates for your harness allowlist
 ```
 
 `--reviewer` is `claude` (default), `opencode`, or `openai`. The first two spawn the matching CLI binary; `openai` calls the HTTP endpoint in your config.
@@ -243,6 +244,37 @@ agent-cya [--reviewer <reviewer>] hook claude-code    # Claude Code PermissionRe
 ```
 
 Exit code `0` for `allow` / `ask` (proceed), `1` for `deny` / error.
+
+### Suggesting allowlist entries
+
+After a few sessions, `agent-cya suggest` surfaces Bash commands you've allowed often enough that you may want to add them to your harness allowlist directly — which skips the AgentCYA hook entirely for those commands and removes the per-call overhead.
+
+```bash
+agent-cya suggest                          # default human-readable table
+agent-cya suggest --json                   # structured output for scripting
+agent-cya suggest --min-allows 10          # raise the threshold (default 5)
+agent-cya suggest --audit-log /tmp/foo.log # read from a non-default audit log
+```
+
+Sample output:
+
+```
+Scanned 1247 Bash entries from ~/.agent-cya/audit.log (+1 rotated).
+
+Suggested commands (≥5 allows, 0 denies):
+  git status                  47 allows  last seen 2d ago
+  npm run lint                23 allows  last seen 1d ago
+
+Clusters worth reviewing manually:
+  npm test  → 47 variants, 112 total allows
+
+Copy individual commands into your harness allowlist;
+for clusters, consider a wildcard pattern after review.
+```
+
+**Safety:** suggestions are always **exact command strings** — never patterns. `git push` and `git push -f` are different keys, so a clean suggestion for `git push` cannot authorize `git push -f` if you paste it into your harness allowlist verbatim. Wildcard patterns are never auto-suggested; the _clusters_ section just shows you which prefixes have high-volume variants in case you want to wildcard them after reviewing the raw audit log.
+
+The audit log itself lives at `~/.agent-cya/audit.log` (plus `audit.log.1` after rotation). `--audit-log <path>` overrides the location if you point AgentCYA at a non-default file.
 
 ## Privacy
 

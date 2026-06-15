@@ -1,8 +1,16 @@
-import { appendFileSync, mkdirSync, renameSync, statSync } from "node:fs";
+import {
+  appendFileSync,
+  createReadStream,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  statSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
+import { createInterface } from "node:readline";
 
-const DEFAULT_AUDIT_PATH = join(homedir(), ".agent-cya", "audit.log");
+export const DEFAULT_AUDIT_LOG = join(homedir(), ".agent-cya", "audit.log");
 const DEFAULT_MAX_BYTES = 10 * 1024 * 1024;
 
 type AuditBase = {
@@ -51,7 +59,7 @@ const rotateIfNeeded = (logPath: string, nextEntryBytes: number): void => {
 };
 
 export const createAuditLogger = (
-  logPath: string = DEFAULT_AUDIT_PATH,
+  logPath: string = DEFAULT_AUDIT_LOG,
 ): AuditLogger => {
   return {
     write(entry: Readonly<AuditEntry>): void {
@@ -69,3 +77,33 @@ export const createAuditLogger = (
     },
   };
 };
+
+/* eslint-disable functional/no-let, functional/no-loop-statements -- for await is the only stack-safe way to stream JSONL */
+const yieldFromFile = async function* (
+  path: string,
+): AsyncIterable<AuditEntry> {
+  if (!existsSync(path)) return;
+  const stream = createReadStream(path, { encoding: "utf-8" });
+  const rl = createInterface({ input: stream, crlfDelay: Infinity });
+  let lineNo = 0;
+  for await (const raw of rl) {
+    lineNo += 1;
+    const line = raw.trim();
+    if (line === "") continue;
+    try {
+      yield JSON.parse(line) as AuditEntry;
+    } catch {
+      process.stderr.write(
+        `[agent-cya] audit: skipped malformed line at ${path}:${lineNo}\n`,
+      );
+    }
+  }
+};
+
+export const readAuditEntries = async function* (
+  path: string = DEFAULT_AUDIT_LOG,
+): AsyncIterable<AuditEntry> {
+  yield* yieldFromFile(`${path}.1`);
+  yield* yieldFromFile(path);
+};
+/* eslint-enable functional/no-let, functional/no-loop-statements */
