@@ -28,7 +28,7 @@ Node 23.9+ required for native `.ts` execution.
 - **`.ts` imports in `.ts` files**: All internal imports use `.ts` extensions (native Node ESM). Adding new modules requires `.ts` in the import path.
 - **Tests included in tsconfig**: `src/**/*.test.ts` files are included in `tsconfig.json`. Running `npm run lint` type-checks both source and test files. `vitest/globals` is in the `types` array so LSP resolves `describe`/`it`/`expect`, but tests must still import from `"vitest"` explicitly.
 - **`cli.test.ts` mocks `node:child_process`**: Must mock at top of file before importing `./cli.ts`, since `spawn` is used transitively.
-- **No HTTP, no API keys**: LLM review shells out to `claude` or `opencode` CLI binaries via `child_process.spawn(binary, ["-p", prompt])`. No `fetch`, no OpenAI API.
+- **HTTP is opt-in via `--reviewer openai`**: by default LLM review shells out to the `claude` or `opencode` CLI binary via `child_process.spawn`. When the user explicitly selects `--reviewer openai`, AgentCYA reads `~/.agent-cya/config.json` and calls a chat-completions endpoint via `fetch`. No HTTP otherwise.
 - **`runReview` returns `number`**: Returns `0` (allow/ask) or `1` (deny/error). Caller in `program.action()` passes to `process.exit()`.
 
 ## Architecture

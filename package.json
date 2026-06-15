@@ -9,7 +9,8 @@
   },
   "files": [
     "bin/",
-    "dist/"
+    "dist/",
+    "config.schema.json"
   ],
   "exports": {
     "./opencode": "./dist/opencode-plugin.js",

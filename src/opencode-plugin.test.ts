@@ -131,6 +131,27 @@ describe("createAgentCyaPlugin", () => {
       "opencode",
     );
   });
+
+  it("createAgentCyaPlugin({ reviewer: 'openai' }) forwards openai through to evaluate", async () => {
+    evaluateMock.mockResolvedValueOnce({
+      decision: { decision: "allow", reason: "safe via openai" },
+      source: "llm",
+    });
+
+    const hooks = await invokePlugin(
+      createAgentCyaPlugin({ reviewer: "openai" }),
+    );
+    const output = { status: "ask" as "ask" | "deny" | "allow" };
+
+    await callPermissionAsk(hooks, { type: "Bash", pattern: "ls -la" }, output);
+
+    expect(evaluateMock).toHaveBeenCalledTimes(1);
+    expect(evaluateMock).toHaveBeenCalledWith(
+      { toolType: "Bash", command: "ls -la", fileContent: null },
+      "openai",
+    );
+    expect(output.status).toBe("allow");
+  });
 });
 
 describe("AgentCya default instance", () => {

@@ -16,7 +16,7 @@ stdin JSON → Hard deny? → File enrichment (Bash) → LLM review → stdout J
 
 1. **Hard deny** — Hardcoded regex patterns catch obviously destructive commands (`rm -rf /`, `curl | bash`, `sudo`, etc.). Blocked immediately, no LLM call.
 2. **File enrichment** — When a Bash command runs a script (`bash foo.sh`, `node x.js`, `./run`, `python3 script.py`), AgentCYA reads the script from disk and includes its contents in the LLM prompt. The reviewer sees what's actually about to execute, not just the invocation — which closes the create-then-execute loophole where a write step slips past unreviewed.
-3. **LLM review** — Everything else is sent to the `claude` or `opencode` CLI binary (spawned locally, no HTTP) for a security assessment.
+3. **LLM review** — Everything else is sent to the reviewer for a security assessment. By default this is the `claude` or `opencode` CLI binary spawned locally; `--reviewer openai` makes an HTTP call to an OpenAI-compatible API configured at `~/.agent-cya/config.json` (see [Reviewer config file](#reviewer-config-file)).
 4. **Audit log** — Every decision is appended to `~/.agent-cya/audit.log`.
 
 ## Quick Start
@@ -106,6 +106,111 @@ export default createAgentCyaPlugin({ reviewer: "opencode" });
 { "plugin": ["./plugins/agent-cya.ts"] }
 ```
 
+### Reviewer config file
+
+The `claude` and `opencode` reviewers need no configuration — they pick up the local CLI's existing auth. The `openai` reviewer makes an HTTP call to an OpenAI-compatible API and needs to know which endpoint, which model, and which API key to use. That lives in `~/.agent-cya/config.json`:
+
+```json
+{
+  "$schema": "https://cdn.jsdelivr.net/npm/agent-cya/config.schema.json",
+  "reviewers": {
+    "openai": {
+      "baseUrl": "https://api.openai.com/v1",
+      "model": "gpt-4o-mini",
+      "apiKey": "sk-..."
+    }
+  }
+}
+```
+
+The `$schema` line is optional — it enables autocomplete, inline docs, and typo detection in any editor that understands JSON Schema (VS Code, JetBrains, Neovim with a JSON LSP, etc.). The schema is also shipped in the npm package at `node_modules/agent-cya/config.schema.json` if you'd rather reference it locally.
+
+Keep the file readable only by you:
+
+```bash
+chmod 600 ~/.agent-cya/config.json
+```
+
+AgentCYA warns on stderr if the mode is more permissive, but does not refuse to read it.
+
+#### API key via credential helper
+
+Set `apiKeyCmd` to a shell command whose stdout is the key; AgentCYA runs it and uses the trimmed output. If both `apiKey` and `apiKeyCmd` are present, `apiKeyCmd` wins (matches git's credential-helper precedence).
+
+Examples:
+
+- **1Password CLI** (any platform):
+
+  ```json
+  { "apiKeyCmd": "op read op://Personal/openai-agent-cya/credential" }
+  ```
+
+- **macOS Keychain**:
+
+  ```bash
+  security add-generic-password -s agent-cya-openai -a "$USER" -w "sk-..."
+  ```
+
+  ```json
+  { "apiKeyCmd": "security find-generic-password -s agent-cya-openai -w" }
+  ```
+
+- **Windows Credential Manager** (via PowerShell SecretManagement):
+
+  ```powershell
+  Set-Secret -Name agent-cya-openai -Secret 'sk-...'
+  ```
+
+  ```json
+  {
+    "apiKeyCmd": "powershell -NoProfile -Command \"Get-Secret -Name agent-cya-openai -AsPlainText\""
+  }
+  ```
+
+- **Bitwarden CLI** (any platform):
+
+  ```json
+  { "apiKeyCmd": "bw get password agent-cya-openai" }
+  ```
+
+- **HashiCorp Vault** (any platform):
+
+  ```json
+  { "apiKeyCmd": "vault kv get -field=apikey kv/agent-cya/openai" }
+  ```
+
+The helper command runs with `shell: true` (so pipes and quoting work the way you'd expect from a shell) and a 5-second timeout. Its stderr is surfaced in error messages, so debugging "why doesn't my helper work" goes through normal CLI channels.
+
+#### Using a local model as the reviewer
+
+The OpenAI-compatible API spec is widely implemented, so the `openai` reviewer works against any locally-running inference server too. Reasons you might want to:
+
+- **Privacy** — every tool call and the contents of every script being executed reach the reviewer. With a local model, nothing leaves your machine.
+- **Cost** — no per-call API fees. A small (~7B-9B) model on a modern laptop reviews each call in ~5 seconds, comparable to spawning the `claude` CLI.
+- **Offline** — works on planes, in restricted networks, behind corporate proxies.
+
+Anything OpenAI-compatible works: Ollama, vLLM, LM Studio, llama.cpp's built-in server, MLX-LM, oMLX, LiteLLM, and most other runtimes. For local servers that don't need auth, set `apiKey` to any non-empty placeholder — the field is required but the server can ignore the header.
+
+Example with Ollama:
+
+```bash
+ollama pull qwen2.5-coder:7b
+```
+
+```json
+{
+  "reviewers": {
+    "openai": {
+      "baseUrl": "http://127.0.0.1:11434/v1",
+      "model": "qwen2.5-coder:7b",
+      "apiKey": "unused"
+    }
+  }
+}
+```
+
+Cloud and hosted services (OpenAI, Together, Groq, Mistral, etc.) work identically — just point `baseUrl` at the provider, set `model` to one they offer, and supply your real API key.
+
 ## CLI
 
 ```
@@ -118,7 +223,7 @@ agent-cya [--reviewer <reviewer>] hook claude-code    # run as a Claude Code Per
 | `review`           | Reads AgentCYA's native input on stdin, emits `{decision, reason}` JSON. Useful for shell-level debugging and ad-hoc integrations. |
 | `hook claude-code` | Reads Claude Code's `PermissionRequest` input, emits `hookSpecificOutput` JSON, exits 2 on deny. Wire this up directly.            |
 
-`--reviewer` is `claude` (default) or `opencode` — which CLI binary spawns for LLM review. It's a global option on `agent-cya`, so pass it before the subcommand.
+`--reviewer` is `claude` (default), `opencode`, or `openai`. The first two spawn the matching CLI binary; `openai` calls a chat-completions HTTP endpoint configured at `~/.agent-cya/config.json` (see [Reviewer config file](#reviewer-config-file)). It's a global option on `agent-cya`, so pass it before the subcommand.
 
 ## Input/Output Format
 
@@ -163,15 +268,17 @@ src/
 ├── opencode-plugin.ts       # OpenCode plugin subpath export: createAgentCyaPlugin() factory
 ├── rules.ts                 # Hardcoded deny regex patterns, evaluateHardDeny()
 ├── file-enrich.ts           # For Bash commands that run a script, reads file contents from disk
-├── prompt.ts                # buildSystemPrompt() + buildUserPrompt() with XML sections
-├── llm.ts                   # Spawns claude/opencode CLI binary, 90s timeout, retry, JSON extractor
+├── prompt.ts                # buildSystemPrompt() + buildUserPrompt() with XML sections (model-agnostic)
+├── llm.ts                   # review() dispatches to claude/opencode spawn or openai HTTP; 90s timeout, retry, JSON extractor
+├── openai-reviewer.ts       # reviewViaOpenAI(): chat/completions HTTP call, AbortController timeout
+├── config.ts                # loadOpenAIConfig(): reads ~/.agent-cya/config.json, resolves apiKey/apiKeyCmd
 └── audit-log.ts             # JSON-lines writer at ~/.agent-cya/audit.log with size-cap rotation
 ```
 
 Key design decisions:
 
-- **No config file** — deny patterns are hardcoded, not user-configurable
-- **No HTTP, no API keys** — LLM review shells out to the `claude` or `opencode` CLI binary via `child_process.spawn`
+- **Deny patterns hardcoded** — the hard-deny regex list is not user-configurable
+- **HTTP is opt-in** — by default LLM review shells out to the `claude` or `opencode` CLI binary via `child_process.spawn`. `--reviewer openai` opts into HTTP via `~/.agent-cya/config.json`; no HTTP otherwise
 - **TypeScript end-to-end** — `node` runs `.ts` directly in development; the npm package ships compiled JS in `dist/` via a `prepack` `tsc` step
 
 ## Tech Stack

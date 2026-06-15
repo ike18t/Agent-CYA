@@ -5,7 +5,7 @@ import { enrichBashFileContent } from "./file-enrich.ts";
 import type { ReviewInput } from "./prompt.ts";
 import type { LlmDecision } from "./llm.ts";
 
-export type Reviewer = "claude" | "opencode";
+export type Reviewer = "claude" | "opencode" | "openai";
 
 export type EvaluateResult = Readonly<{
   decision: LlmDecision;

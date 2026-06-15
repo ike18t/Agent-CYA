@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cdn.jsdelivr.net/npm/agent-cya/config.schema.json",
+  "title": "AgentCYA config",
+  "description": "Schema for ~/.agent-cya/config.json. Add \"$schema\": \"https://cdn.jsdelivr.net/npm/agent-cya/config.schema.json\" at the top of your config to get editor autocomplete and validation.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Pointer to this schema for editor tooling."
+    },
+    "reviewers": {
+      "type": "object",
+      "description": "Per-reviewer settings keyed by reviewer name. Currently only `openai` is configurable here; the `claude` and `opencode` reviewers pick up the local CLI's existing auth.",
+      "properties": {
+        "openai": {
+          "type": "object",
+          "description": "Configuration for `--reviewer openai`. Talks to any OpenAI-compatible chat/completions endpoint over HTTP.",
+          "properties": {
+            "baseUrl": {
+              "type": "string",
+              "format": "uri",
+              "minLength": 1,
+              "description": "OpenAI-compatible API base URL. Example: https://api.openai.com/v1 — for local servers, http://127.0.0.1:11434/v1 (Ollama) or http://127.0.0.1:8000/v1."
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Model identifier the server recognizes. Example: gpt-4o-mini, qwen2.5-coder:7b."
+            },
+            "apiKey": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Bearer token literal. For local servers that don't authenticate, use any non-empty placeholder (e.g. \"unused\")."
+            },
+            "apiKeyCmd": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Shell command whose trimmed stdout is the bearer token. Takes precedence over apiKey when both are set. Example: \"op read op://Personal/openai/credential\"."
+            }
+          },
+          "required": ["baseUrl", "model"],
+          "anyOf": [{ "required": ["apiKey"] }, { "required": ["apiKeyCmd"] }],
+          "additionalProperties": false
+        }
+      },
+      "required": ["openai"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["reviewers"],
+  "additionalProperties": false
+}

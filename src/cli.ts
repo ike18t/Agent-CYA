@@ -15,8 +15,8 @@ program
   .description("CLI that reviews AI coding harness tool calls before execution")
   .version(packageJson.version)
   .addOption(
-    new Option("--reviewer <reviewer>", "Reviewer CLI binary")
-      .choices(["claude", "opencode"])
+    new Option("--reviewer <reviewer>", "LLM Reviewer")
+      .choices(["claude", "opencode", "openai"])
       .default("claude"),
   );
 

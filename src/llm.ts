@@ -2,6 +2,8 @@ import { spawn } from "node:child_process";
 import { buildSystemPrompt, buildUserPrompt } from "./prompt.ts";
 import type { ReviewInput } from "./prompt.ts";
 import type { Reviewer } from "./pipeline.ts";
+import { loadOpenAIConfig } from "./config.ts";
+import { reviewViaOpenAI } from "./openai-reviewer.ts";
 
 export type LlmDecision = {
   decision: "allow" | "deny" | "ask";
@@ -39,9 +41,8 @@ export const padAskDecision = async (
   };
 };
 
-const INVOCATION_FOR_REVIEWER: Record<
-  Reviewer,
-  Readonly<{ binary: string; leadingArgs: readonly string[] }>
+const INVOCATION_FOR_REVIEWER: Partial<
+  Record<Reviewer, Readonly<{ binary: string; leadingArgs: readonly string[] }>>
 > = {
   claude: { binary: "claude", leadingArgs: ["-p"] },
   opencode: { binary: "opencode", leadingArgs: ["run"] },
@@ -166,7 +167,7 @@ const spawnBinary = (
 };
 /* eslint-enable functional/immutable-data */
 
-const RETRY_DELAY_MS = 500;
+export const RETRY_DELAY_MS = 500;
 
 type SpawnOutcome = Readonly<{ raw: string } | { error: string }>;
 
@@ -214,26 +215,54 @@ const callLlm = async (
   };
 };
 
-export const review = async function review(
+const runReviewer = async (
   input: Readonly<ReviewInput>,
   reviewer: Reviewer,
-  spawnFn: typeof spawn = spawn,
-  sleepFn: (ms: number) => Promise<void> = sleep,
-): Promise<LlmDecision> {
+  spawnFn: typeof spawn,
+  sleepFn: (ms: number) => Promise<void>,
+  fetchFn: typeof fetch,
+): Promise<LlmDecision> => {
+  if (reviewer === "openai") {
+    try {
+      const config = await loadOpenAIConfig(spawnFn);
+      return await reviewViaOpenAI(input, config, fetchFn);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(
+        `[agent-cya] LLM review failed (openai): ${message}\n`,
+      );
+      return {
+        decision: "ask",
+        reason: `LLM unavailable (openai: ${message})`,
+      };
+    }
+  }
+
   const invocation = INVOCATION_FOR_REVIEWER[reviewer];
   if (!invocation) {
-    return padAskDecision(
-      { decision: "ask", reason: `Unknown reviewer: ${reviewer}` },
-      0,
-      sleepFn,
-    );
+    return { decision: "ask", reason: `Unknown reviewer: ${reviewer}` };
   }
 
   const systemPrompt = buildSystemPrompt();
   const userPrompt = buildUserPrompt(input);
   const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+  return callLlm(invocation, fullPrompt, spawnFn, sleepFn);
+};
 
+export const review = async function review(
+  input: Readonly<ReviewInput>,
+  reviewer: Reviewer,
+  spawnFn: typeof spawn = spawn,
+  sleepFn: (ms: number) => Promise<void> = sleep,
+  fetchFn: typeof fetch = fetch,
+): Promise<LlmDecision> {
   const startMs = Date.now();
-  const decision = await callLlm(invocation, fullPrompt, spawnFn, sleepFn);
+  const decision = await runReviewer(
+    input,
+    reviewer,
+    spawnFn,
+    sleepFn,
+    fetchFn,
+  );
   return padAskDecision(decision, Date.now() - startMs, sleepFn);
 };
