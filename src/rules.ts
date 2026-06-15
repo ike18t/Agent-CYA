@@ -7,19 +7,23 @@ export type RuleResult = {
 
 type RuleFn = (node: Parsed) => RuleResult | null;
 
-const hasFlagLetter = (args: readonly string[], letter: string): boolean =>
-  args.some(
-    (a) => a.startsWith("-") && !a.startsWith("--") && a.includes(letter),
+const LONG_FLAGS_FOR_LETTER: Readonly<Record<string, readonly string[]>> = {
+  r: ["--recursive"],
+  R: ["--recursive"],
+  f: ["--force"],
+};
+
+const hasFlagLetter = (args: readonly string[], letter: string): boolean => {
+  const longForms = LONG_FLAGS_FOR_LETTER[letter] ?? [];
+  return args.some(
+    (a) =>
+      (a.startsWith("-") && !a.startsWith("--") && a.includes(letter)) ||
+      longForms.includes(a),
   );
+};
 
 const hasFlagBoth = (args: readonly string[], a: string, b: string): boolean =>
-  args.some(
-    (arg) =>
-      arg.startsWith("-") &&
-      !arg.startsWith("--") &&
-      arg.includes(a) &&
-      arg.includes(b),
-  );
+  hasFlagLetter(args, a) && hasFlagLetter(args, b);
 
 const ABS_DANGER_PATH = /^\/(tmp|var|usr|etc)?(\/.*)?$/;
 
@@ -141,8 +145,7 @@ const isGitSub = (node: Parsed, sub: string | readonly string[]): boolean => {
 };
 
 const ruleGitPushForce: RuleFn = (node) => {
-  if (node.type !== "simple" || node.name !== "git" || node.args[0] !== "push")
-    return null;
+  if (!isGitSub(node, "push") || node.type !== "simple") return null;
   const hasLease = node.args.includes("--force-with-lease");
   const hasForce = node.args.includes("--force") || node.args.includes("-f");
   if (!hasForce || hasLease) return null;
@@ -251,7 +254,7 @@ const ruleGhSecretRemove: RuleFn = (node) => {
   if (node.args[1] !== "remove" && node.args[1] !== "delete") return null;
   return {
     decision: "ask",
-    reason: "gh secret remove removes a repository or organization secret",
+    reason: `gh secret ${node.args[1]} removes a repository or organization secret`,
   };
 };
 
@@ -310,11 +313,14 @@ const ruleKubectlDrain: RuleFn = (node) => {
 
 const ruleChmod777: RuleFn = (node) => {
   if (node.type !== "simple" || node.name !== "chmod") return null;
-  if (!node.args.some((a) => a === "777" || a === "0777")) return null;
+  // Match world-writable modes: 777, 0777, plus sticky/setgid/setuid variants
+  // (1777, 2777, 4777, etc.). The pattern accepts an optional leading 0-7 digit
+  // before the 777 trailer.
+  if (!node.args.some((a) => /^[0-7]?777$/.test(a))) return null;
   return {
     decision: "ask",
     reason:
-      "chmod 777 makes the target world-writable; verify this is actually necessary",
+      "chmod with world-writable mode (777 or sticky/setuid variants); verify this is actually necessary",
   };
 };
 
