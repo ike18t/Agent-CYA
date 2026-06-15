@@ -87,7 +87,7 @@ describe("runReview", () => {
     expect(result).toBe(1);
     const output = JSON.parse(buffers.stdout.join(""));
     expect(output.decision).toBe("deny");
-    expect(output.reason).toContain("denied pattern");
+    expect(output.reason).toMatch(/rm with -r/);
   });
 
   it("passes safe commands through to LLM", async () => {
