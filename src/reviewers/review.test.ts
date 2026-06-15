@@ -5,13 +5,13 @@ vi.mock("./config.ts", () => ({
   loadOpenAIConfig: vi.fn(),
 }));
 
-vi.mock("./openai-reviewer.ts", () => ({
+vi.mock("./openai.ts", () => ({
   reviewViaOpenAI: vi.fn(),
 }));
 
-import { review } from "./llm.ts";
+import { review } from "./review.ts";
 import { loadOpenAIConfig } from "./config.ts";
-import { reviewViaOpenAI } from "./openai-reviewer.ts";
+import { reviewViaOpenAI } from "./openai.ts";
 import type { ReviewInput } from "./prompt.ts";
 import type { OpenAIReviewerConfig } from "./config.ts";
 

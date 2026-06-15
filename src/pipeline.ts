@@ -1,9 +1,9 @@
 import { evaluateHardDeny } from "./rules.ts";
-import { review } from "./llm.ts";
+import { review } from "./reviewers/review.ts";
 import { createAuditLogger } from "./audit-log.ts";
 import { enrichBashFileContent } from "./file-enrich.ts";
-import type { ReviewInput } from "./prompt.ts";
-import type { LlmDecision } from "./llm.ts";
+import type { ReviewInput } from "./reviewers/prompt.ts";
+import type { LlmDecision } from "./reviewers/parse.ts";
 
 export type Reviewer = "claude" | "opencode" | "openai";
 

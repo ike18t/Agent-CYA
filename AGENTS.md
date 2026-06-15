@@ -39,16 +39,24 @@ Node 23.9+ required for native `.ts` execution.
 
 1. Parse stdin JSON → `src/cli.ts` (`parseInput`)
 2. Hard deny (regex pattern match) → `src/rules.ts`
-3. LLM review (binary spawn) → `src/llm.ts` → `src/prompt.ts`
+3. LLM review → `src/reviewers/review.ts` (dispatches to `cli-binary.ts` or `openai.ts`)
 4. Audit log (always on) → `src/audit-log.ts`
 
-**5 source files**:
+**Layout**:
 
-- `src/rules.ts` — 11 hardcoded deny regex patterns, `evaluateHardDeny()`
-- `src/prompt.ts` — `buildSystemPrompt()` + `buildUserPrompt()` with XML sections and escaping
-- `src/llm.ts` — `spawn` wrapper for `claude`/`opencode` binaries, 30s timeout, JSON extractor
+- `src/rules.ts` — hardcoded deny regex patterns, `evaluateHardDeny()`
 - `src/cli.ts` — Commander.js CLI, stdin JSON → hard deny → LLM review → stdout JSON
+- `src/pipeline.ts` — `evaluate()`: orchestrates rules → enrich → reviewer → audit
+- `src/file-enrich.ts` — for Bash that runs a script, reads the script contents from disk
 - `src/audit-log.ts` — always-on JSON-lines writer at `~/.agent-cya/audit.log`
+- `src/harnesses/claude-code.ts` — Claude Code PermissionRequest hook adapter
+- `src/harnesses/opencode-plugin.ts` — OpenCode plugin subpath export
+- `src/reviewers/review.ts` — `review()` public entry, dispatches to a transport
+- `src/reviewers/cli-binary.ts` — spawn-based reviewer for `claude` / `opencode` binaries
+- `src/reviewers/openai.ts` — HTTP reviewer for OpenAI-compatible endpoints
+- `src/reviewers/parse.ts` — shared JSON extractor + `LlmDecision` type
+- `src/reviewers/prompt.ts` — `buildSystemPrompt()` + `buildUserPrompt()`
+- `src/reviewers/config.ts` — `loadOpenAIConfig()`, reads `~/.agent-cya/config.json`
 
 **Hooks** (not part of `src/`, external entry points):
 
@@ -62,8 +70,8 @@ Node 23.9+ required for native `.ts` execution.
 ## Testing
 
 - Framework: Vitest with `globals: true`
-- Colocated tests: `src/rules.test.ts`, `src/prompt.test.ts`, `src/llm.test.ts`, `src/cli.test.ts`, `src/audit-log.test.ts`
-- `llm.test.ts` and `cli.test.ts` mock `node:child_process.spawn`
+- Colocated tests: each `src/foo.ts` has a sibling `src/foo.test.ts`
+- `src/reviewers/cli-binary.test.ts` and `src/cli.test.ts` mock `node:child_process.spawn`
 - No integration tests: LLM calls are always mocked
 
 ## No CI/CD

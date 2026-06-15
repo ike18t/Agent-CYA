@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 process.env.AGENT_CYA_MIN_ASK_MS = "0";
-import { reviewViaOpenAI } from "./openai-reviewer.ts";
+import { reviewViaOpenAI } from "./openai.ts";
 import type { OpenAIReviewerConfig } from "./config.ts";
 import type { ReviewInput } from "./prompt.ts";
 

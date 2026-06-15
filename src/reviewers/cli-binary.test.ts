@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 process.env.AGENT_CYA_MIN_ASK_MS = "0";
-import { padAskDecision, parseLlmResponse, review } from "./llm.ts";
+import { padAskDecision, review } from "./review.ts";
+import { parseLlmResponse } from "./parse.ts";
 
 describe("parseLlmResponse", () => {
   it("parses valid allow decision", () => {

@@ -1,6 +1,6 @@
 import type { Command } from "commander";
-import type { ReviewInput } from "../prompt.ts";
-import type { LlmDecision } from "../llm.ts";
+import type { ReviewInput } from "../reviewers/prompt.ts";
+import type { LlmDecision } from "../reviewers/parse.ts";
 import { evaluate, type Reviewer } from "../pipeline.ts";
 
 type ClaudeCodeHookInput = Readonly<{

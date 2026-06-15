@@ -1,6 +1,6 @@
 import { readFileSync, statSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
-import type { ReviewInput } from "./prompt.ts";
+import type { ReviewInput } from "./reviewers/prompt.ts";
 
 const INTERPRETERS = new Set([
   "bash",

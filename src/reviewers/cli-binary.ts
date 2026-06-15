@@ -1,48 +1,20 @@
 import { spawn } from "node:child_process";
 import { buildSystemPrompt, buildUserPrompt } from "./prompt.ts";
 import type { ReviewInput } from "./prompt.ts";
-import type { Reviewer } from "./pipeline.ts";
-import { loadOpenAIConfig } from "./config.ts";
-import { reviewViaOpenAI } from "./openai-reviewer.ts";
-
-export type LlmDecision = {
-  decision: "allow" | "deny" | "ask";
-  reason: string;
-};
+import { parseLlmResponse } from "./parse.ts";
+import type { LlmDecision } from "./parse.ts";
 
 const SPAWN_TIMEOUT_MS = 90_000;
-
-const DEFAULT_MIN_ASK_MS = 0;
+const RETRY_DELAY_MS = 500;
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-const getMinAskMs = (): number => {
-  const raw = process.env.AGENT_CYA_MIN_ASK_MS;
-  if (raw === undefined) return DEFAULT_MIN_ASK_MS;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_MIN_ASK_MS;
-};
+export type CliBinaryReviewer = "claude" | "opencode";
 
-export const padAskDecision = async (
-  decision: Readonly<LlmDecision>,
-  elapsedMs: number,
-  sleepFn: (ms: number) => Promise<void> = sleep,
-): Promise<LlmDecision> => {
-  const minMs = getMinAskMs();
-  if (decision.decision !== "ask" || minMs <= 0) return decision;
-  const remaining = minMs - elapsedMs;
-  if (remaining <= 0) return decision;
-
-  await sleepFn(remaining);
-  return {
-    decision: "ask",
-    reason: `${decision.reason} [agent-cya held ${Math.ceil(minMs / 1000)}s for human input]`,
-  };
-};
-
-const INVOCATION_FOR_REVIEWER: Partial<
-  Record<Reviewer, Readonly<{ binary: string; leadingArgs: readonly string[] }>>
+const INVOCATION_FOR_REVIEWER: Record<
+  CliBinaryReviewer,
+  Readonly<{ binary: string; leadingArgs: readonly string[] }>
 > = {
   claude: { binary: "claude", leadingArgs: ["-p"] },
   opencode: { binary: "opencode", leadingArgs: ["run"] },
@@ -65,36 +37,6 @@ const sanitizeEnv = (): NodeJS.ProcessEnv =>
       ([key, value]) => !value || !SECRET_PATTERNS.some((re) => re.test(key)),
     ),
   ) as NodeJS.ProcessEnv;
-
-const extractJson = (raw: string): string => {
-  const trimmed = raw.trim();
-  const codeBlockMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-  if (codeBlockMatch) {
-    return codeBlockMatch[1].trim();
-  }
-  const firstBrace = trimmed.indexOf("{");
-  const lastBrace = trimmed.lastIndexOf("}");
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    return trimmed.slice(firstBrace, lastBrace + 1);
-  }
-  return trimmed;
-};
-
-export const parseLlmResponse = (raw: string): LlmDecision => {
-  try {
-    const jsonStr = extractJson(raw);
-    const parsed = JSON.parse(jsonStr);
-    const decision = parsed.decision;
-    if (decision !== "allow" && decision !== "deny" && decision !== "ask") {
-      return { decision: "ask", reason: "Invalid LLM response, needs review" };
-    }
-    const reason =
-      typeof parsed.reason === "string" ? parsed.reason : "No reason provided";
-    return { decision, reason };
-  } catch {
-    return { decision: "ask", reason: "Invalid LLM response, needs review" };
-  }
-};
 
 /* eslint-disable functional/immutable-data -- callback-based spawn needs mutable accumulator */
 const spawnBinary = (
@@ -167,8 +109,6 @@ const spawnBinary = (
 };
 /* eslint-enable functional/immutable-data */
 
-export const RETRY_DELAY_MS = 500;
-
 type SpawnOutcome = Readonly<{ raw: string } | { error: string }>;
 
 const attemptSpawn = (
@@ -184,12 +124,16 @@ const attemptSpawn = (
       }),
     );
 
-const callLlm = async (
-  invocation: Readonly<{ binary: string; leadingArgs: readonly string[] }>,
-  fullPrompt: string,
-  spawnFn: typeof spawn,
+export const reviewViaCliBinary = async (
+  input: Readonly<ReviewInput>,
+  reviewer: CliBinaryReviewer,
+  spawnFn: typeof spawn = spawn,
   sleepFn: (ms: number) => Promise<void> = sleep,
 ): Promise<LlmDecision> => {
+  const invocation = INVOCATION_FOR_REVIEWER[reviewer];
+  const systemPrompt = buildSystemPrompt();
+  const userPrompt = buildUserPrompt(input);
+  const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
   const args = [...invocation.leadingArgs, fullPrompt];
 
   const first = await attemptSpawn(invocation.binary, args, spawnFn);
@@ -213,56 +157,4 @@ const callLlm = async (
     decision: "ask",
     reason: `LLM unavailable (${invocation.binary}: ${final.error})`,
   };
-};
-
-const runReviewer = async (
-  input: Readonly<ReviewInput>,
-  reviewer: Reviewer,
-  spawnFn: typeof spawn,
-  sleepFn: (ms: number) => Promise<void>,
-  fetchFn: typeof fetch,
-): Promise<LlmDecision> => {
-  if (reviewer === "openai") {
-    try {
-      const config = await loadOpenAIConfig(spawnFn);
-      return await reviewViaOpenAI(input, config, fetchFn);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      process.stderr.write(
-        `[agent-cya] LLM review failed (openai): ${message}\n`,
-      );
-      return {
-        decision: "ask",
-        reason: `LLM unavailable (openai: ${message})`,
-      };
-    }
-  }
-
-  const invocation = INVOCATION_FOR_REVIEWER[reviewer];
-  if (!invocation) {
-    return { decision: "ask", reason: `Unknown reviewer: ${reviewer}` };
-  }
-
-  const systemPrompt = buildSystemPrompt();
-  const userPrompt = buildUserPrompt(input);
-  const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
-  return callLlm(invocation, fullPrompt, spawnFn, sleepFn);
-};
-
-export const review = async function review(
-  input: Readonly<ReviewInput>,
-  reviewer: Reviewer,
-  spawnFn: typeof spawn = spawn,
-  sleepFn: (ms: number) => Promise<void> = sleep,
-  fetchFn: typeof fetch = fetch,
-): Promise<LlmDecision> {
-  const startMs = Date.now();
-  const decision = await runReviewer(
-    input,
-    reviewer,
-    spawnFn,
-    sleepFn,
-    fetchFn,
-  );
-  return padAskDecision(decision, Date.now() - startMs, sleepFn);
 };

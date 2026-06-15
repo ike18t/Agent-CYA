@@ -13,7 +13,7 @@
     "config.schema.json"
   ],
   "exports": {
-    "./opencode": "./dist/opencode-plugin.js",
+    "./opencode": "./dist/harnesses/opencode-plugin.js",
     "./package.json": "./package.json"
   },
   "keywords": [

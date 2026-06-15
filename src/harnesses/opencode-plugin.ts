@@ -1,5 +1,5 @@
 import type { Plugin } from "@opencode-ai/plugin";
-import { evaluate, type Reviewer } from "./pipeline.ts";
+import { evaluate, type Reviewer } from "../pipeline.ts";
 
 type Options = Readonly<{ reviewer?: Reviewer }>;
 

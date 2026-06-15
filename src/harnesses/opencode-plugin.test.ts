@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("./pipeline.ts", () => ({
+vi.mock("../pipeline.ts", () => ({
   evaluate: vi.fn(),
 }));
 
@@ -9,7 +9,7 @@ import {
   AgentCya,
   default as DefaultExport,
 } from "./opencode-plugin.ts";
-import { evaluate } from "./pipeline.ts";
+import { evaluate } from "../pipeline.ts";
 
 const evaluateMock = vi.mocked(evaluate);
 

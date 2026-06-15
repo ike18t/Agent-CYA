@@ -1,10 +1,11 @@
 import { buildSystemPrompt, buildUserPrompt } from "./prompt.ts";
 import type { ReviewInput } from "./prompt.ts";
 import type { OpenAIReviewerConfig } from "./config.ts";
-import { parseLlmResponse, RETRY_DELAY_MS } from "./llm.ts";
-import type { LlmDecision } from "./llm.ts";
+import { parseLlmResponse } from "./parse.ts";
+import type { LlmDecision } from "./parse.ts";
 
 const HTTP_TIMEOUT_MS = 90_000;
+const RETRY_DELAY_MS = 500;
 
 const ERROR_BODY_MAX_CHARS = 500;
 

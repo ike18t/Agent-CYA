@@ -261,18 +261,22 @@ agent-cya [--reviewer <reviewer>] hook claude-code    # run as a Claude Code Per
 
 ```
 src/
-├── main.ts                  # Entry point: imports program from cli.ts, calls program.parse()
-├── cli.ts                   # Commander.js CLI, dispatches to review / hook claude-code
-├── pipeline.ts              # evaluate(): hard-deny → enrich → LLM review, shared by all harnesses
-├── harnesses/claude-code.ts # Claude Code PermissionRequest adapter (input/output transforms)
-├── opencode-plugin.ts       # OpenCode plugin subpath export: createAgentCyaPlugin() factory
-├── rules.ts                 # Hardcoded deny regex patterns, evaluateHardDeny()
-├── file-enrich.ts           # For Bash commands that run a script, reads file contents from disk
-├── prompt.ts                # buildSystemPrompt() + buildUserPrompt() with XML sections (model-agnostic)
-├── llm.ts                   # review() dispatches to claude/opencode spawn or openai HTTP; 90s timeout, retry, JSON extractor
-├── openai-reviewer.ts       # reviewViaOpenAI(): chat/completions HTTP call, AbortController timeout
-├── config.ts                # loadOpenAIConfig(): reads ~/.agent-cya/config.json, resolves apiKey/apiKeyCmd
-└── audit-log.ts             # JSON-lines writer at ~/.agent-cya/audit.log with size-cap rotation
+├── main.ts                       # Entry point: imports program from cli.ts, calls program.parse()
+├── cli.ts                        # Commander.js CLI, dispatches to review / hook claude-code
+├── pipeline.ts                   # evaluate(): hard-deny → enrich → reviewer → audit
+├── rules.ts                      # Hardcoded deny regex patterns, evaluateHardDeny()
+├── file-enrich.ts                # For Bash commands that run a script, reads the file from disk
+├── audit-log.ts                  # JSON-lines writer at ~/.agent-cya/audit.log with size-cap rotation
+├── harnesses/
+│   ├── claude-code.ts            # Claude Code PermissionRequest adapter
+│   └── opencode-plugin.ts        # OpenCode plugin subpath export: createAgentCyaPlugin() factory
+└── reviewers/
+    ├── review.ts                 # review() public entry: dispatches to a transport, applies ask-padding
+    ├── cli-binary.ts             # reviewViaCliBinary(): spawn-based path for claude/opencode CLIs
+    ├── openai.ts                 # reviewViaOpenAI(): chat/completions HTTP call, AbortController timeout
+    ├── parse.ts                  # parseLlmResponse(): JSON extractor shared by both transports
+    ├── prompt.ts                 # buildSystemPrompt() + buildUserPrompt() with XML sections (transport-agnostic)
+    └── config.ts                 # loadOpenAIConfig(): reads ~/.agent-cya/config.json, resolves apiKey/apiKeyCmd
 ```
 
 Key design decisions:

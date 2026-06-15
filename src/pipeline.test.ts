@@ -5,11 +5,11 @@ vi.mock("node:child_process", () => ({
   spawn: vi.fn(),
 }));
 
-vi.mock("./config.ts", () => ({
+vi.mock("./reviewers/config.ts", () => ({
   loadOpenAIConfig: vi.fn(),
 }));
 
-vi.mock("./openai-reviewer.ts", () => ({
+vi.mock("./reviewers/openai.ts", () => ({
   reviewViaOpenAI: vi.fn(),
 }));
 
@@ -20,8 +20,8 @@ vi.mock("./audit-log.ts", () => ({
 
 import { evaluate } from "./pipeline.ts";
 import * as childProcess from "node:child_process";
-import { loadOpenAIConfig } from "./config.ts";
-import { reviewViaOpenAI } from "./openai-reviewer.ts";
+import { loadOpenAIConfig } from "./reviewers/config.ts";
+import { reviewViaOpenAI } from "./reviewers/openai.ts";
 
 describe("evaluate", () => {
   beforeEach(() => {

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { Command, Option } from "commander";
 import { evaluate, type Reviewer } from "./pipeline.ts";
 import { registerHookCommand } from "./harnesses/claude-code.ts";
-import type { ReviewInput } from "./prompt.ts";
+import type { ReviewInput } from "./reviewers/prompt.ts";
 
 const packageJson: Readonly<{ version: string }> = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
