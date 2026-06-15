@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.3.0-alpha.1...agent-cya-v0.3.1-alpha.1) (2026-06-15)
+
+
+### Refactoring
+
+* replace AGENT_CYA_MIN_ASK_MS env var with --min-ask-ms CLI flag ([9f53816](https://github.com/ike18t/Agent-CYA/commit/9f53816ce004f58aa549b7056989c0fc1f9b589f))
+
 ## [0.3.0-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.2.3-alpha.1...agent-cya-v0.3.0-alpha.1) (2026-06-15)
 
 
