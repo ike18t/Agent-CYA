@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import type { ReviewInput } from "../reviewers/prompt.ts";
 import type { LlmDecision } from "../reviewers/parse.ts";
 import { evaluate, type Reviewer } from "../pipeline.ts";
-import { harnessReviewer } from "../reviewers/config.ts";
+import { safeHarnessReviewer } from "../reviewers/config.ts";
 
 type ClaudeCodeHookInput = Readonly<{
   tool_name?: string;
@@ -74,7 +74,7 @@ export const exitCodeForDecision = (decision: Readonly<LlmDecision>): number =>
 
 export const resolveHookReviewer = (
   flagReviewer: Reviewer | undefined,
-): Reviewer => flagReviewer ?? harnessReviewer("claudeCode") ?? "claude";
+): Reviewer => flagReviewer ?? safeHarnessReviewer("claudeCode") ?? "claude";
 
 /* eslint-disable functional/no-let, functional/no-loop-statements -- for await is the only stack-safe way to read stdin */
 const readStdin = async (): Promise<string> => {

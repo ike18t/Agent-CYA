@@ -189,6 +189,18 @@ export const loadConfigFile = (): Config | undefined => {
 export const harnessReviewer = (harness: HarnessKey): Reviewer | undefined =>
   loadConfigFile()?.harnesses?.[harness]?.reviewer;
 
+export const safeHarnessReviewer = (
+  harness: HarnessKey,
+): Reviewer | undefined => {
+  try {
+    return harnessReviewer(harness);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`[agent-cya] ${message}\n`);
+    return undefined;
+  }
+};
+
 /* eslint-disable functional/immutable-data -- callback-based spawn needs mutable accumulator */
 const runApiKeyCmd = (
   command: string,
@@ -270,7 +282,7 @@ export const loadOpenAIConfig = async (
     throw new Error(`Failed to read config at ${path}: file not found`);
   }
 
-  if (!isRecord(config.reviewers)) {
+  if (!config.reviewers) {
     throw new Error(`${path}: missing 'reviewers' object`);
   }
 

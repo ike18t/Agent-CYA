@@ -1,13 +1,13 @@
 import type { Plugin } from "@opencode-ai/plugin";
 import { evaluate, type Reviewer } from "../pipeline.ts";
-import { harnessReviewer } from "../reviewers/config.ts";
+import { safeHarnessReviewer } from "../reviewers/config.ts";
 
 type Options = Readonly<{ reviewer?: Reviewer }>;
 
 export const createAgentCyaPlugin =
   ({ reviewer }: Options = {}): Plugin =>
   async () => {
-    const effective = reviewer ?? harnessReviewer("opencode") ?? "opencode";
+    const effective = reviewer ?? safeHarnessReviewer("opencode") ?? "opencode";
     return {
       "permission.ask": async (input, output) => {
         const pattern = input.pattern;

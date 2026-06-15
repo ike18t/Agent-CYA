@@ -5,13 +5,13 @@ import {
   exitCodeForDecision,
   resolveHookReviewer,
 } from "./claude-code.ts";
-import { harnessReviewer } from "../reviewers/config.ts";
+import { safeHarnessReviewer } from "../reviewers/config.ts";
 
 vi.mock("../reviewers/config.ts", () => ({
-  harnessReviewer: vi.fn(),
+  safeHarnessReviewer: vi.fn(),
 }));
 
-const harnessReviewerMock = vi.mocked(harnessReviewer);
+const harnessReviewerMock = vi.mocked(safeHarnessReviewer);
 
 describe("parseClaudeCodeHookInput", () => {
   it("maps a Bash hook input", () => {
@@ -128,8 +128,19 @@ describe("exitCodeForDecision", () => {
 });
 
 describe("resolveHookReviewer", () => {
+  const stderrLines: string[] = [];
+
   beforeEach(() => {
     harnessReviewerMock.mockReset();
+    stderrLines.length = 0;
+    vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      stderrLines.push(typeof chunk === "string" ? chunk : chunk.toString());
+      return true;
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("returns the flag value when flag is set, even if harness config is also set", () => {
@@ -145,5 +156,14 @@ describe("resolveHookReviewer", () => {
   it("returns 'claude' default when both flag and harness config are absent", () => {
     harnessReviewerMock.mockReturnValue(undefined);
     expect(resolveHookReviewer(undefined)).toBe("claude");
+  });
+
+  it("falls back to 'claude' and emits stderr when safeHarnessReviewer throws due to broken config", () => {
+    harnessReviewerMock.mockImplementation(() => {
+      process.stderr.write("[agent-cya] config: bad\n");
+      return undefined;
+    });
+    expect(resolveHookReviewer(undefined)).toBe("claude");
+    expect(stderrLines.join("")).toContain("[agent-cya] config: bad");
   });
 });

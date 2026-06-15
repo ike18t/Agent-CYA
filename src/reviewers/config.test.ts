@@ -19,7 +19,12 @@ vi.mock("node:os", async () => {
   };
 });
 
-import { loadOpenAIConfig, loadConfigFile, harnessReviewer } from "./config.ts";
+import {
+  loadOpenAIConfig,
+  loadConfigFile,
+  harnessReviewer,
+  safeHarnessReviewer,
+} from "./config.ts";
 
 const writeConfig = (contents: string, mode = 0o600): string => {
   const dir = join(ctx.home, ".agent-cya");
@@ -459,5 +464,54 @@ describe("harnessReviewer", () => {
       }),
     );
     expect(harnessReviewer("claudeCode")).toBe("openai");
+  });
+});
+
+describe("safeHarnessReviewer", () => {
+  beforeEach(() => {
+    ctx.home = mkdtempSync(join(tmpdir(), "agent-cya-config-"));
+    buffers.stderr = [];
+    vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      buffers.stderr.push(typeof chunk === "string" ? chunk : chunk.toString());
+      return true;
+    });
+  });
+
+  afterEach(() => {
+    rmSync(ctx.home, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  it("returns undefined and writes to stderr when config file is malformed JSON", () => {
+    writeConfig("not { valid json");
+    const result = safeHarnessReviewer("claudeCode");
+    expect(result).toBeUndefined();
+    const stderr = buffers.stderr.join("");
+    expect(stderr).toContain("[agent-cya] ");
+  });
+
+  it("returns undefined and writes to stderr when harnesses key has an invalid reviewer value", () => {
+    writeConfig(
+      JSON.stringify({ harnesses: { claudeCode: { reviewer: "bad-value" } } }),
+    );
+    const result = safeHarnessReviewer("claudeCode");
+    expect(result).toBeUndefined();
+    const stderr = buffers.stderr.join("");
+    expect(stderr).toContain("[agent-cya] ");
+  });
+
+  it("returns the reviewer normally when config is valid", () => {
+    writeConfig(
+      JSON.stringify({ harnesses: { claudeCode: { reviewer: "openai" } } }),
+    );
+    const result = safeHarnessReviewer("claudeCode");
+    expect(result).toBe("openai");
+    expect(buffers.stderr.join("")).toBe("");
+  });
+
+  it("returns undefined without stderr when config file is absent", () => {
+    const result = safeHarnessReviewer("claudeCode");
+    expect(result).toBeUndefined();
+    expect(buffers.stderr.join("")).toBe("");
   });
 });

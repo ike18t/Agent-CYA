@@ -5,7 +5,7 @@ vi.mock("../pipeline.ts", () => ({
 }));
 
 vi.mock("../reviewers/config.ts", () => ({
-  harnessReviewer: vi.fn(),
+  safeHarnessReviewer: vi.fn(),
 }));
 
 import {
@@ -14,10 +14,10 @@ import {
   default as DefaultExport,
 } from "./opencode-plugin.ts";
 import { evaluate } from "../pipeline.ts";
-import { harnessReviewer } from "../reviewers/config.ts";
+import { safeHarnessReviewer } from "../reviewers/config.ts";
 
 const evaluateMock = vi.mocked(evaluate);
-const harnessReviewerMock = vi.mocked(harnessReviewer);
+const harnessReviewerMock = vi.mocked(safeHarnessReviewer);
 
 const invokePlugin = async (
   plugin: ReturnType<typeof createAgentCyaPlugin>,
@@ -225,6 +225,22 @@ describe("createAgentCyaPlugin", () => {
     await callPermissionAsk(hooks, { type: "Bash", pattern: "pwd" }, output);
 
     expect(harnessReviewerMock.mock.calls.length).toBe(1);
+  });
+
+  it("falls back to 'opencode' default and still loads when safeHarnessReviewer returns undefined due to a config error", async () => {
+    // safeHarnessReviewer returns undefined (swallowing the internal error) when config is broken
+    harnessReviewerMock.mockReturnValue(undefined);
+
+    const hooks = await invokePlugin(createAgentCyaPlugin());
+    const output = { status: "ask" as "ask" | "deny" | "allow" };
+
+    await callPermissionAsk(hooks, { type: "Bash", pattern: "ls" }, output);
+
+    expect(evaluateMock).toHaveBeenCalledWith(
+      { toolType: "Bash", command: "ls", fileContent: null },
+      "opencode",
+      0,
+    );
   });
 });
 
