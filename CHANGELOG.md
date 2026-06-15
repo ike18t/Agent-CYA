@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.1-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.5.0-alpha.1...agent-cya-v0.5.1-alpha.1) (2026-06-15)
+
+
+### Build
+
+* **deps-dev:** bump @types/node from 24.13.2 to 25.9.3 ([ff1a28a](https://github.com/ike18t/Agent-CYA/commit/ff1a28ab8bc636250366f09fbe31c4e919a23fd6))
+* **deps-dev:** bump typescript from 5.9.3 to 6.0.3 ([2a94069](https://github.com/ike18t/Agent-CYA/commit/2a94069c547c6cacffe6b9c480209fe664beb9de))
+* **deps-dev:** bump vitest from 3.2.6 to 4.1.9 ([e01a4c9](https://github.com/ike18t/Agent-CYA/commit/e01a4c989770dce4b473c9c4991726ecd08c372e))
+* **deps:** bump actions/checkout from 4.3.1 to 6.0.3 ([a39885a](https://github.com/ike18t/Agent-CYA/commit/a39885a89b4edf67ad243b125f74258a9778b7ba))
+* **deps:** bump actions/setup-node from 4.4.0 to 6.4.0 ([e83ac8d](https://github.com/ike18t/Agent-CYA/commit/e83ac8d0805e1360348d2bff0f01751ba4d8405d))
+* **deps:** bump commander from 12.1.0 to 15.0.0 ([4a39bcf](https://github.com/ike18t/Agent-CYA/commit/4a39bcf61b81ff5f02fcc483f3055efe3fefaeed))
+
 ## [0.5.0-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.4.0-alpha.1...agent-cya-v0.5.0-alpha.1) (2026-06-15)
 
 
