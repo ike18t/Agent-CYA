@@ -337,4 +337,29 @@ describe("evaluateRules", () => {
   it("returns null (not throw) on parse failures", () => {
     expect(evaluateRules('echo "unterminated')).toBeNull();
   });
+
+  // Redirect descent: rules now fire on commands that use a redirect
+  it("denies env > file (env-dump via redirect)", () => {
+    const result = evaluateRules("env > /tmp/leak");
+    expect(result).not.toBeNull();
+    expect(result!.decision).toBe("deny");
+  });
+  it("denies export > file (export-dump via redirect)", () => {
+    const result = evaluateRules("export > /tmp/leak");
+    expect(result).not.toBeNull();
+    expect(result!.decision).toBe("deny");
+  });
+  it("denies printenv > file", () => {
+    const result = evaluateRules("printenv > /tmp/leak");
+    expect(result).not.toBeNull();
+    expect(result!.decision).toBe("deny");
+  });
+  it("denies rm -rf / > log (rule still fires through a redirect)", () => {
+    const result = evaluateRules("rm -rf / > log");
+    expect(result).not.toBeNull();
+    expect(result!.decision).toBe("deny");
+  });
+  it("does not flag cat README.md > out", () => {
+    expect(evaluateRules("cat README.md > out")).toBeNull();
+  });
 });

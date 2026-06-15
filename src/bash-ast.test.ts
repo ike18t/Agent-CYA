@@ -178,4 +178,14 @@ describe("parse", () => {
   it("returns null when parsing fails (unterminated heredoc start)", () => {
     expect(parse("cat <<EOF\nstill open")).toBeNull();
   });
+
+  it("descends into redirected_statement and exposes the body command", () => {
+    const result = parse("env > /tmp/leak");
+    expect(result).not.toBeNull();
+    expect(result!.type).toBe("simple");
+    if (result && result.type === "simple") {
+      expect(result.name).toBe("env");
+      expect(result.args).toEqual([]);
+    }
+  });
 });
