@@ -274,8 +274,39 @@ describe("evaluateRules", () => {
   it("asks on chmod 0777", () => {
     expect(evaluateRules("chmod 0777 file.txt")!.decision).toBe("ask");
   });
+  it("asks on chmod 1777 (sticky-bit world-writable)", () => {
+    expect(evaluateRules("chmod 1777 /tmp/shared")!.decision).toBe("ask");
+  });
+  it("asks on chmod 4777 (setuid world-writable)", () => {
+    expect(evaluateRules("chmod 4777 file.txt")!.decision).toBe("ask");
+  });
   it("does not flag chmod 755", () => {
     expect(evaluateRules("chmod 755 script.sh")).toBeNull();
+  });
+
+  // GNU long-flag coverage for the rm/clean rules
+  it("denies rm --recursive against /tmp", () => {
+    const result = evaluateRules("rm --recursive /tmp/foo");
+    expect(result).not.toBeNull();
+    expect(result!.decision).toBe("deny");
+  });
+  it("denies rm --recursive --force .", () => {
+    const result = evaluateRules("rm --recursive --force .");
+    expect(result).not.toBeNull();
+    expect(result!.decision).toBe("deny");
+  });
+  it("asks on git clean --force", () => {
+    const result = evaluateRules("git clean --force");
+    expect(result).not.toBeNull();
+    expect(result!.decision).toBe("ask");
+  });
+
+  // gh secret delete reason should reflect the actual subcommand
+  it("uses the correct subcommand in the gh secret reason", () => {
+    const removeResult = evaluateRules("gh secret remove FOO");
+    expect(removeResult!.reason).toMatch(/gh secret remove/);
+    const deleteResult = evaluateRules("gh secret delete FOO");
+    expect(deleteResult!.reason).toMatch(/gh secret delete/);
   });
 
   it("descends into && lists and denies on rm -rf /", () => {
