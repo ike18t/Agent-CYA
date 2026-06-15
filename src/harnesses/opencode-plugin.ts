@@ -4,7 +4,7 @@ import { evaluate, type Reviewer } from "../pipeline.ts";
 type Options = Readonly<{ reviewer?: Reviewer }>;
 
 export const createAgentCyaPlugin =
-  ({ reviewer = "claude" }: Options = {}): Plugin =>
+  ({ reviewer = "opencode" }: Options = {}): Plugin =>
   async () => ({
     "permission.ask": async (input, output) => {
       const pattern = input.pattern;

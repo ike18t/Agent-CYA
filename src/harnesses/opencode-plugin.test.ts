@@ -61,7 +61,7 @@ describe("createAgentCyaPlugin", () => {
     expect(evaluateMock).toHaveBeenCalledTimes(1);
     expect(evaluateMock).toHaveBeenCalledWith(
       { toolType: "Bash", command: "ls -la", fileContent: null },
-      "claude",
+      "opencode",
       0,
     );
     expect(output.status).toBe("allow");
@@ -75,7 +75,7 @@ describe("createAgentCyaPlugin", () => {
 
     expect(evaluateMock).toHaveBeenCalledWith(
       { toolType: "Bash", command: "", fileContent: null },
-      "claude",
+      "opencode",
       0,
     );
   });
@@ -95,7 +95,7 @@ describe("createAgentCyaPlugin", () => {
 
     expect(evaluateMock).toHaveBeenCalledWith(
       { toolType: "Bash", command: "", fileContent: null },
-      "claude",
+      "opencode",
       0,
     );
   });
