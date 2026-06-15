@@ -5,16 +5,17 @@ import { homedir } from "node:os";
 const DEFAULT_AUDIT_PATH = join(homedir(), ".agent-cya", "audit.log");
 const DEFAULT_MAX_BYTES = 10 * 1024 * 1024;
 
-type AuditSource = "rule" | "llm";
-
-export type AuditEntry = {
+type AuditBase = {
   timestamp: string;
   tool: string;
   command: string;
   decision: "allow" | "deny" | "ask";
   reason: string;
-  source: AuditSource;
 };
+
+export type AuditEntry =
+  | (AuditBase & { source: "rule" })
+  | (AuditBase & { source: "llm"; reviewer: string });
 
 export type AuditLogger = {
   write(entry: Readonly<AuditEntry>): void;

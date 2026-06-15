@@ -83,6 +83,9 @@ describe("evaluate", () => {
     expect(result.source).toBe("llm");
     expect(result.decision.decision).toBe("allow");
     expect(result.decision.reason).toBe("safe command");
+    if (result.source === "llm") {
+      expect(result.reviewer).toBe("claude");
+    }
     expect(childProcess.spawn).toHaveBeenCalled();
   });
 
@@ -111,6 +114,7 @@ describe("evaluate", () => {
     expect(entry.decision).toBe("allow");
     expect(entry.reason).toBe("safe");
     expect(entry.source).toBe("llm");
+    expect(entry.reviewer).toBe("claude");
     expect(typeof entry.timestamp).toBe("string");
   });
 
@@ -151,6 +155,7 @@ describe("evaluate", () => {
     const entry = auditWrite.mock.calls[0][0];
     expect(entry.decision).toBe("ask");
     expect(entry.source).toBe("llm");
+    expect(entry.reviewer).toBe("claude");
     expect(entry.command).toBe("ls");
     expect(entry.tool).toBe("Bash");
   });
@@ -185,6 +190,10 @@ describe("evaluate", () => {
     expect(entry.decision).toBe("allow");
     expect(entry.reason).toBe("safe via openai");
     expect(entry.source).toBe("llm");
+    expect(entry.reviewer).toBe("openai");
+    if (result.source === "llm") {
+      expect(result.reviewer).toBe("openai");
+    }
   });
 
   it("evaluate(input, 'openai') falls back to ask when config load fails", async () => {
@@ -207,6 +216,7 @@ describe("evaluate", () => {
     const entry = auditWrite.mock.calls[0][0];
     expect(entry.decision).toBe("ask");
     expect(entry.source).toBe("llm");
+    expect(entry.reviewer).toBe("openai");
     expect(entry.reason).toMatch(/^LLM unavailable \(openai:/);
   });
 

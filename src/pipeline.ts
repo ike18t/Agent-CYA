@@ -7,15 +7,16 @@ import type { LlmDecision } from "./llm.ts";
 
 export type Reviewer = "claude" | "opencode" | "openai";
 
-export type EvaluateResult = Readonly<{
-  decision: LlmDecision;
-  source: "rule" | "llm";
-}>;
+export type EvaluateResult =
+  | Readonly<{ decision: LlmDecision; source: "rule" }>
+  | Readonly<{ decision: LlmDecision; source: "llm"; reviewer: Reviewer }>;
+
+type AuditTag = { source: "rule" } | { source: "llm"; reviewer: Reviewer };
 
 const writeAudit = (
   input: Readonly<ReviewInput>,
   decision: Readonly<LlmDecision>,
-  source: "rule" | "llm",
+  tag: Readonly<AuditTag>,
   audit: ReturnType<typeof createAuditLogger>,
 ): void => {
   audit.write({
@@ -24,7 +25,7 @@ const writeAudit = (
     command: input.command,
     decision: decision.decision,
     reason: decision.reason,
-    source,
+    ...tag,
   });
 };
 
@@ -36,12 +37,12 @@ export const evaluate = async (
 
   const denyResult = evaluateHardDeny(input.command);
   if (denyResult) {
-    writeAudit(input, denyResult, "rule", audit);
+    writeAudit(input, denyResult, { source: "rule" }, audit);
     return { decision: denyResult, source: "rule" };
   }
 
   const enriched = enrichBashFileContent(input);
   const decision = await review(enriched, reviewer);
-  writeAudit(input, decision, "llm", audit);
-  return { decision, source: "llm" };
+  writeAudit(input, decision, { source: "llm", reviewer }, audit);
+  return { decision, source: "llm", reviewer };
 };

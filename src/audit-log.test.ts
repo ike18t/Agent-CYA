@@ -20,6 +20,7 @@ describe("createAuditLogger", () => {
       decision: "ask",
       reason: "pending review",
       source: "llm",
+      reviewer: "claude",
     };
     expect(() => logger.write(entry)).not.toThrow();
   });
@@ -57,9 +58,13 @@ describe("createAuditLogger", () => {
       decision: "ask",
       reason: "LLM review needed",
       source: "llm",
+      reviewer: "openai",
     };
     expect(ruleEntry.source).toBe("rule");
     expect(llmEntry.source).toBe("llm");
+    if (llmEntry.source === "llm") {
+      expect(llmEntry.reviewer).toBe("openai");
+    }
   });
 
   it("never throws on write failure", () => {
@@ -88,6 +93,7 @@ describe("createAuditLogger", () => {
         decision: "allow",
         reason: "safe",
         source: "llm",
+        reviewer: "claude",
       });
       const content = readFileSync(logPath, "utf-8");
       expect(content).toContain('"tool":"Bash"');
@@ -117,6 +123,7 @@ describe("audit log rotation", () => {
     decision: "allow",
     reason: "safe",
     source: "llm",
+    reviewer: "claude",
   };
 
   it("rotates the log file when it would exceed the cap", () => {

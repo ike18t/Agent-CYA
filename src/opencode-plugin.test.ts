@@ -43,6 +43,7 @@ describe("createAgentCyaPlugin", () => {
     evaluateMock.mockResolvedValue({
       decision: { decision: "allow", reason: "safe" },
       source: "llm",
+      reviewer: "claude",
     });
   });
 
@@ -136,6 +137,7 @@ describe("createAgentCyaPlugin", () => {
     evaluateMock.mockResolvedValueOnce({
       decision: { decision: "allow", reason: "safe via openai" },
       source: "llm",
+      reviewer: "openai",
     });
 
     const hooks = await invokePlugin(
@@ -160,6 +162,7 @@ describe("AgentCya default instance", () => {
     evaluateMock.mockResolvedValue({
       decision: { decision: "allow", reason: "safe" },
       source: "llm",
+      reviewer: "claude",
     });
   });
 
