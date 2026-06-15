@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.4.0-alpha.1...agent-cya-v0.5.0-alpha.1) (2026-06-15)
+
+
+### Features
+
+* per-harness reviewer overrides ([#18](https://github.com/ike18t/Agent-CYA/issues/18)) ([689245b](https://github.com/ike18t/Agent-CYA/commit/689245bf09adf4634c966584870b5c20f5325684))
+
 ## [0.4.0-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.3.1-alpha.1...agent-cya-v0.4.0-alpha.1) (2026-06-15)
 
 
