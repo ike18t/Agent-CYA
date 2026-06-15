@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { Command, Option } from "commander";
 import { evaluate, type Reviewer } from "./pipeline.ts";
 import { registerHookCommand } from "./harnesses/claude-code.ts";
+import { registerSuggestCommand } from "./suggest.ts";
 import type { ReviewInput } from "./reviewers/prompt.ts";
 
 const packageJson: Readonly<{ version: string }> = JSON.parse(
@@ -100,5 +101,7 @@ const hook = program
   .description("Run as a harness permission hook");
 
 registerHookCommand(hook);
+
+registerSuggestCommand(program);
 
 export { runReview, parseInput, program };
