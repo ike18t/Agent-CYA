@@ -82,10 +82,11 @@ const readStdin = async (): Promise<string> => {
 const runHook = async (
   stdinRaw: string,
   reviewer: Reviewer,
+  minAskMs: number,
 ): Promise<number> => {
   try {
     const input = parseClaudeCodeHookInput(stdinRaw);
-    const { decision } = await evaluate(input, reviewer);
+    const { decision } = await evaluate(input, reviewer, minAskMs);
     process.stdout.write(formatClaudeCodeHookOutput(decision) + "\n");
     return exitCodeForDecision(decision);
   } catch (err) {
@@ -108,9 +109,11 @@ export const registerHookCommand = (parent: Command): void => {
       "Run as a Claude Code PermissionRequest hook (reads/writes Claude Code's hook format)",
     )
     .action(async (_options, command: Command) => {
-      const reviewer = command.optsWithGlobals().reviewer as Reviewer;
+      const globals = command.optsWithGlobals();
+      const reviewer = globals.reviewer as Reviewer;
+      const minAskMs = globals.minAskMs as number;
       const stdin = await readStdin();
-      const exitCode = await runHook(stdin, reviewer);
+      const exitCode = await runHook(stdin, reviewer, minAskMs);
       process.exit(exitCode);
     });
 };

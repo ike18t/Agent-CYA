@@ -18,6 +18,20 @@ program
     new Option("--reviewer <reviewer>", "LLM Reviewer")
       .choices(["claude", "opencode", "openai"])
       .default("claude"),
+  )
+  .addOption(
+    new Option(
+      "--min-ask-ms <ms>",
+      "Minimum ms to hold 'ask' decisions open for human review",
+    )
+      .default(0)
+      .argParser((v) => {
+        const n = Number(v);
+        if (!Number.isFinite(n) || n < 0) {
+          throw new Error("--min-ask-ms must be a non-negative finite number");
+        }
+        return n;
+      }),
   );
 
 /* eslint-disable functional/no-let, functional/no-loop-statements -- for await is the only stack-safe way to read stdin */
@@ -52,10 +66,11 @@ const parseInput = (raw: string): ReviewInput => {
 const runReview = async (
   stdinRaw: string,
   reviewer: Reviewer,
+  minAskMs: number,
 ): Promise<number> => {
   try {
     const input = parseInput(stdinRaw);
-    const { decision } = await evaluate(input, reviewer);
+    const { decision } = await evaluate(input, reviewer, minAskMs);
     process.stdout.write(JSON.stringify(decision) + "\n");
     return decision.decision === "deny" ? 1 : 0;
   } catch (err) {
@@ -69,9 +84,11 @@ program
   .command("review")
   .description("Review a tool call from stdin (agent-cya input format)")
   .action(async (_options, command: Command) => {
-    const reviewer = command.optsWithGlobals().reviewer as Reviewer;
+    const globals = command.optsWithGlobals();
+    const reviewer = globals.reviewer as Reviewer;
+    const minAskMs = globals.minAskMs as number;
     const stdin = await readStdin();
-    const exitCode = await runReview(stdin, reviewer);
+    const exitCode = await runReview(stdin, reviewer, minAskMs);
     process.exit(exitCode);
   });
 

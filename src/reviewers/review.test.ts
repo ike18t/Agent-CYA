@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-process.env.AGENT_CYA_MIN_ASK_MS = "0";
 
 vi.mock("./config.ts", () => ({
   loadOpenAIConfig: vi.fn(),
@@ -39,12 +38,10 @@ describe("review dispatch — openai reviewer", () => {
       );
       return true;
     });
-    process.env.AGENT_CYA_MIN_ASK_MS = "0";
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    delete process.env.AGENT_CYA_MIN_ASK_MS;
   });
 
   it("dispatches to reviewViaOpenAI and does not spawn", async () => {
@@ -59,6 +56,7 @@ describe("review dispatch — openai reviewer", () => {
     const result = await review(
       baseInput,
       "openai",
+      0,
       mockSpawn,
       undefined,
       mockFetch,
@@ -80,7 +78,7 @@ describe("review dispatch — openai reviewer", () => {
     );
     const mockSpawn = vi.fn();
 
-    const result = await review(baseInput, "openai", mockSpawn);
+    const result = await review(baseInput, "openai", 0, mockSpawn);
 
     expect(result.decision).toBe("ask");
     expect(result.reason).toMatch(/^LLM unavailable \(openai:/);
@@ -98,14 +96,13 @@ describe("review dispatch — openai reviewer", () => {
       reason: "LLM unavailable (openai: HTTP 500)",
     });
 
-    const result = await review(baseInput, "openai", vi.fn());
+    const result = await review(baseInput, "openai", 0, vi.fn());
 
     expect(result.decision).toBe("ask");
     expect(result.reason).toBe("LLM unavailable (openai: HTTP 500)");
   });
 
-  it("applies AGENT_CYA_MIN_ASK_MS padding to the openai ask path", async () => {
-    process.env.AGENT_CYA_MIN_ASK_MS = "100";
+  it("applies --min-ask-ms padding to the openai ask path", async () => {
     vi.mocked(loadOpenAIConfig).mockResolvedValue(baseConfig);
     vi.mocked(reviewViaOpenAI).mockResolvedValue({
       decision: "ask",
@@ -113,7 +110,7 @@ describe("review dispatch — openai reviewer", () => {
     });
     const fakeSleep = vi.fn().mockResolvedValue(undefined);
 
-    const result = await review(baseInput, "openai", vi.fn(), fakeSleep);
+    const result = await review(baseInput, "openai", 100, vi.fn(), fakeSleep);
 
     expect(fakeSleep).toHaveBeenCalledTimes(1);
     const sleepMs = fakeSleep.mock.calls[0][0] as number;

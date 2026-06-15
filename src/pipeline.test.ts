@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-process.env.AGENT_CYA_MIN_ASK_MS = "0";
 
 vi.mock("node:child_process", () => ({
   spawn: vi.fn(),
@@ -35,6 +34,7 @@ describe("evaluate", () => {
     const result = await evaluate(
       { toolType: "Bash", command: "rm -rf /", fileContent: null },
       "claude",
+      0,
     );
 
     expect(result.source).toBe("rule");
@@ -47,6 +47,7 @@ describe("evaluate", () => {
     await evaluate(
       { toolType: "Bash", command: "rm -rf /", fileContent: null },
       "claude",
+      0,
     );
 
     expect(auditWrite).toHaveBeenCalledTimes(1);
@@ -78,6 +79,7 @@ describe("evaluate", () => {
     const result = await evaluate(
       { toolType: "Bash", command: "ls", fileContent: null },
       "claude",
+      0,
     );
 
     expect(result.source).toBe("llm");
@@ -105,6 +107,7 @@ describe("evaluate", () => {
     await evaluate(
       { toolType: "Bash", command: "ls", fileContent: null },
       "claude",
+      0,
     );
 
     expect(auditWrite).toHaveBeenCalledTimes(1);
@@ -130,6 +133,7 @@ describe("evaluate", () => {
     const result = await evaluate(
       { toolType: "Bash", command: "ls", fileContent: null },
       "claude",
+      0,
     );
 
     expect(result.source).toBe("llm");
@@ -149,6 +153,7 @@ describe("evaluate", () => {
     await evaluate(
       { toolType: "Bash", command: "ls", fileContent: null },
       "claude",
+      0,
     );
 
     expect(auditWrite).toHaveBeenCalledTimes(1);
@@ -174,6 +179,7 @@ describe("evaluate", () => {
     const result = await evaluate(
       { toolType: "Bash", command: "ls", fileContent: null },
       "openai",
+      0,
     );
 
     expect(result.source).toBe("llm");
@@ -204,6 +210,7 @@ describe("evaluate", () => {
     const result = await evaluate(
       { toolType: "Bash", command: "ls", fileContent: null },
       "openai",
+      0,
     );
 
     expect(result.source).toBe("llm");
@@ -224,6 +231,7 @@ describe("evaluate", () => {
     const result = await evaluate(
       { toolType: "Bash", command: "rm -rf /", fileContent: null },
       "openai",
+      0,
     );
 
     expect(result.source).toBe("rule");

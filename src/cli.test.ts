@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-process.env.AGENT_CYA_MIN_ASK_MS = "0";
 
 vi.mock("node:child_process", () => ({
   spawn: vi.fn(),
@@ -82,6 +81,7 @@ describe("runReview", () => {
         fileContent: null,
       }),
       "claude",
+      0,
     );
 
     expect(result).toBe(1);
@@ -112,6 +112,7 @@ describe("runReview", () => {
         fileContent: null,
       }),
       "claude",
+      0,
     );
 
     expect(result).toBe(0);
@@ -135,6 +136,7 @@ describe("runReview", () => {
         fileContent: null,
       }),
       "claude",
+      0,
     );
 
     expect(result).toBe(0);
@@ -143,7 +145,7 @@ describe("runReview", () => {
   });
 
   it("handles invalid JSON input gracefully", async () => {
-    const result = await runReview("not valid json", "claude");
+    const result = await runReview("not valid json", "claude", 0);
     expect(result).toBe(1);
     expect(buffers.stderr.join("")).toContain("agent-cya");
   });

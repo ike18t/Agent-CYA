@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-process.env.AGENT_CYA_MIN_ASK_MS = "0";
 import { padAskDecision, review } from "./review.ts";
 import { parseLlmResponse } from "./parse.ts";
 
@@ -88,6 +87,7 @@ describe("review", () => {
     const result = await review(
       { toolType: "Bash", command: "ls", fileContent: null },
       "claude",
+      0,
       mockSpawn,
     );
 
@@ -115,6 +115,7 @@ describe("review", () => {
     const result = await review(
       { toolType: "Bash", command: "rm -rf /", fileContent: null },
       "opencode",
+      0,
       mockSpawn,
     );
 
@@ -141,6 +142,7 @@ describe("review", () => {
     const result = await review(
       { toolType: "Bash", command: "ls", fileContent: null },
       "claude",
+      0,
       mockSpawn,
       fakeSleep,
     );
@@ -168,6 +170,7 @@ describe("review", () => {
     const result = await review(
       { toolType: "Bash", command: "ls", fileContent: null },
       "claude",
+      0,
       mockSpawn,
       fakeSleep,
     );
@@ -210,6 +213,7 @@ describe("review", () => {
     const result = await review(
       { toolType: "Bash", command: "ls", fileContent: null },
       "claude",
+      0,
       mockSpawn,
       fakeSleep,
     );
@@ -236,6 +240,7 @@ describe("review", () => {
     const promise = review(
       { toolType: "Bash", command: "ls", fileContent: null },
       "claude",
+      0,
       mockSpawn,
       fakeSleep,
     );
@@ -249,15 +254,12 @@ describe("review", () => {
   });
 
   describe("padAskDecision", () => {
-    beforeEach(() => {
-      process.env.AGENT_CYA_MIN_ASK_MS = "60000";
-    });
-
     it("sleeps the remaining ms when ask arrives early", async () => {
       const fakeSleep = vi.fn().mockResolvedValue(undefined);
       const result = await padAskDecision(
         { decision: "ask", reason: "unsure" },
         5_000,
+        60_000,
         fakeSleep,
       );
       expect(fakeSleep).toHaveBeenCalledWith(55_000);
@@ -270,6 +272,7 @@ describe("review", () => {
       const result = await padAskDecision(
         { decision: "ask", reason: "unsure" },
         61_000,
+        60_000,
         fakeSleep,
       );
       expect(fakeSleep).not.toHaveBeenCalled();
@@ -281,6 +284,7 @@ describe("review", () => {
       const result = await padAskDecision(
         { decision: "allow", reason: "safe" },
         0,
+        60_000,
         fakeSleep,
       );
       expect(fakeSleep).not.toHaveBeenCalled();
@@ -292,29 +296,18 @@ describe("review", () => {
       const result = await padAskDecision(
         { decision: "deny", reason: "destructive" },
         0,
+        60_000,
         fakeSleep,
       );
       expect(fakeSleep).not.toHaveBeenCalled();
       expect(result).toEqual({ decision: "deny", reason: "destructive" });
     });
 
-    it("is disabled by default when AGENT_CYA_MIN_ASK_MS is unset", async () => {
-      delete process.env.AGENT_CYA_MIN_ASK_MS;
+    it("is disabled when --min-ask-ms is 0 (the default)", async () => {
       const fakeSleep = vi.fn().mockResolvedValue(undefined);
       const result = await padAskDecision(
         { decision: "ask", reason: "unsure" },
         0,
-        fakeSleep,
-      );
-      expect(fakeSleep).not.toHaveBeenCalled();
-      expect(result.reason).toBe("unsure");
-    });
-
-    it("is disabled when AGENT_CYA_MIN_ASK_MS is 0", async () => {
-      process.env.AGENT_CYA_MIN_ASK_MS = "0";
-      const fakeSleep = vi.fn().mockResolvedValue(undefined);
-      const result = await padAskDecision(
-        { decision: "ask", reason: "unsure" },
         0,
         fakeSleep,
       );
@@ -339,6 +332,7 @@ describe("review", () => {
     const result = await review(
       { toolType: "Bash", command: "ls", fileContent: null },
       "claude",
+      0,
       mockSpawn,
     );
 

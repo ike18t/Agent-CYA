@@ -32,6 +32,7 @@ const writeAudit = (
 export const evaluate = async (
   input: Readonly<ReviewInput>,
   reviewer: Reviewer,
+  minAskMs: number,
 ): Promise<EvaluateResult> => {
   const audit = createAuditLogger();
 
@@ -42,7 +43,7 @@ export const evaluate = async (
   }
 
   const enriched = enrichBashFileContent(input);
-  const decision = await review(enriched, reviewer);
+  const decision = await review(enriched, reviewer, minAskMs);
   writeAudit(input, decision, { source: "llm", reviewer }, audit);
   return { decision, source: "llm", reviewer };
 };

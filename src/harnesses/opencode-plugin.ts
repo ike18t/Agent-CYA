@@ -15,6 +15,7 @@ export const createAgentCyaPlugin =
           fileContent: null,
         },
         reviewer,
+        0,
       );
       // eslint-disable-next-line functional/immutable-data -- OpenCode's permission.ask contract requires mutating output.status
       output.status = decision.decision;

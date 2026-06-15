@@ -60,7 +60,7 @@ The hook only fires when Claude Code would otherwise prompt for permission — a
 
 > ⚠️ **Watch out for "autopilot accept" on fallback prompts.** When the reviewer LLM returns `ask` (or is unreachable), Claude Code surfaces its standard approval prompt — visually identical to any other permission ask, with no AgentCYA reasoning attached. Clicking through reflexively can `allow` something AgentCYA was uncertain about, or worse, `Yes, and don't ask again for X` bypasses the hook for future matches.
 >
-> Set `AGENT_CYA_MIN_ASK_MS` (e.g. `30000` for 30s) to hold `ask` decisions open long enough to actually read. Allows and denies still return as fast as the LLM does. Make sure the hook `timeout` (seconds) exceeds `AGENT_CYA_MIN_ASK_MS / 1000` plus your LLM's worst-case review time.
+> Pass `--min-ask-ms <ms>` (e.g. `--min-ask-ms 30000` for 30s) to hold `ask` decisions open long enough to actually read. Allows and denies still return as fast as the LLM does. Make sure the hook `timeout` (seconds) exceeds `--min-ask-ms / 1000` plus your LLM's worst-case review time.
 
 ## Setup — OpenCode
 
