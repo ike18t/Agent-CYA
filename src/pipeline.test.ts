@@ -39,7 +39,7 @@ describe("evaluate", () => {
 
     expect(result.source).toBe("rule");
     expect(result.decision.decision).toBe("deny");
-    expect(result.decision.reason).toContain("denied pattern");
+    expect(result.decision.reason).toMatch(/rm with -r/);
     expect(childProcess.spawn).not.toHaveBeenCalled();
   });
 
@@ -236,7 +236,7 @@ describe("evaluate", () => {
 
     expect(result.source).toBe("rule");
     expect(result.decision.decision).toBe("deny");
-    expect(result.decision.reason).toContain("denied pattern");
+    expect(result.decision.reason).toMatch(/rm with -r/);
     expect(loadOpenAIConfig).not.toHaveBeenCalled();
     expect(reviewViaOpenAI).not.toHaveBeenCalled();
 

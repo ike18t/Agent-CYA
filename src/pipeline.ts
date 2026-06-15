@@ -1,4 +1,4 @@
-import { evaluateHardDeny } from "./rules.ts";
+import { evaluateRules } from "./rules.ts";
 import { review } from "./reviewers/review.ts";
 import { createAuditLogger } from "./audit-log.ts";
 import { enrichBashFileContent } from "./file-enrich.ts";
@@ -36,10 +36,10 @@ export const evaluate = async (
 ): Promise<EvaluateResult> => {
   const audit = createAuditLogger();
 
-  const denyResult = evaluateHardDeny(input.command);
-  if (denyResult) {
-    writeAudit(input, denyResult, { source: "rule" }, audit);
-    return { decision: denyResult, source: "rule" };
+  const ruleResult = evaluateRules(input.command);
+  if (ruleResult) {
+    writeAudit(input, ruleResult, { source: "rule" }, audit);
+    return { decision: ruleResult, source: "rule" };
   }
 
   const enriched = enrichBashFileContent(input);
