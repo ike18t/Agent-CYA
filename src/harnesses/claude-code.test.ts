@@ -139,10 +139,6 @@ describe("resolveHookReviewer", () => {
     });
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it("returns the flag value when flag is set, even if harness config is also set", () => {
     harnessReviewerMock.mockReturnValue("openai");
     expect(resolveHookReviewer("claude")).toBe("claude");

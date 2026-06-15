@@ -78,7 +78,6 @@ describe("loadOpenAIConfig", () => {
 
   afterEach(() => {
     rmSync(ctx.home, { recursive: true, force: true });
-    vi.restoreAllMocks();
   });
 
   it("loads config with literal apiKey", async () => {
@@ -343,7 +342,6 @@ describe("loadConfigFile", () => {
 
   afterEach(() => {
     rmSync(ctx.home, { recursive: true, force: true });
-    vi.restoreAllMocks();
   });
 
   it("returns undefined when config file is missing", () => {
@@ -439,7 +437,6 @@ describe("harnessReviewer", () => {
 
   afterEach(() => {
     rmSync(ctx.home, { recursive: true, force: true });
-    vi.restoreAllMocks();
   });
 
   it("returns undefined when config file is missing", () => {
@@ -479,7 +476,6 @@ describe("safeHarnessReviewer", () => {
 
   afterEach(() => {
     rmSync(ctx.home, { recursive: true, force: true });
-    vi.restoreAllMocks();
   });
 
   it("returns undefined and writes to stderr when config file is malformed JSON", () => {
