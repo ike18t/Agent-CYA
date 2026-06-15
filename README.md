@@ -75,20 +75,6 @@ npm install agent-cya
 
 The plugin's `permission.ask` handler emits the AgentCYA decision directly as OpenCode's `output.status` — same review pipeline as the CLI hook, in-process (no spawn, no JSON parsing).
 
-To use OpenCode itself as the reviewer LLM, write a one-line wrapper:
-
-```typescript
-// ~/.config/opencode/plugins/agent-cya.ts
-import { createAgentCyaPlugin } from "agent-cya/opencode";
-export default createAgentCyaPlugin({ reviewer: "opencode" });
-```
-
-…and reference it from `opencode.json`:
-
-```json
-{ "plugin": ["./plugins/agent-cya.ts"] }
-```
-
 > ⚠️ **Upstream caveat:** OpenCode currently gates `permission.ask` so it doesn't fire for first-encounter commands or in non-interactive `opencode run` sessions, which means the AgentCYA decision never lands. The plugin loads fine and works when invoked directly; this is tracked at [anomalyco/opencode#19927](https://github.com/anomalyco/opencode/issues/19927). Once OpenCode forwards every permission ask to plugins, the integration works as documented.
 
 ## Configuration
