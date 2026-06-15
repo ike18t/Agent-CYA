@@ -11,7 +11,7 @@ npm run lint                       # tsc + eslint + prettier + knip
 node src/main.ts review --help   # run CLI
 ```
 
-Node 23.9+ required for native `.ts` execution.
+**Node versions**: development requires Node 23.9+ for native `.ts` execution (the dev path runs `node src/main.ts` directly). The published package targets Node 22+ — consumers install compiled JS from `dist/` and don't need 23.x.
 
 ## Commands
 
@@ -20,7 +20,7 @@ Node 23.9+ required for native `.ts` execution.
 | `npm test`                                                                               | Run all tests                  |
 | `npm run lint`                                                                           | tsc + eslint + prettier + knip |
 | `npm test -- src/cli.test.ts`                                                            | Run single test file           |
-| `echo '{"toolType":"Bash","command":"ls"}' \| node src/main.ts review --platform claude` | Manual review                  |
+| `echo '{"toolType":"Bash","command":"ls"}' \| node src/main.ts --reviewer claude review` | Manual review                  |
 
 ## Critical Gotchas
 
@@ -58,14 +58,9 @@ Node 23.9+ required for native `.ts` execution.
 - `src/reviewers/prompt.ts` — `buildSystemPrompt()` + `buildUserPrompt()`
 - `src/reviewers/config.ts` — `loadOpenAIConfig()`, reads `~/.agent-cya/config.json`
 
-**Hooks** (not part of `src/`, external entry points):
-
-- `hooks/claude-hook.sh` — Claude Code PermissionRequest adapter (single jq call, exit 2 on deny)
-- `hooks/opencode-plugin.ts` — OpenCode `tool.execute.before` plugin (30s spawn timeout)
-
 **Input/Output**: JSON over stdin/stdout. Exit code `0` = allow/ask, `1` = deny/error.
 
-**Platform flag**: `--platform claude` spawns `claude` binary; `--platform opencode` spawns `opencode` binary.
+**Reviewer flag**: `--reviewer claude` (default) and `--reviewer opencode` spawn the matching CLI binary. `--reviewer openai` calls an OpenAI-compatible HTTP endpoint configured at `~/.agent-cya/config.json`.
 
 ## Testing
 
@@ -74,6 +69,23 @@ Node 23.9+ required for native `.ts` execution.
 - `src/reviewers/cli-binary.test.ts` and `src/cli.test.ts` mock `node:child_process.spawn`
 - No integration tests: LLM calls are always mocked
 
-## No CI/CD
+## Tech Stack
 
-No GitHub Actions, no pre-commit hooks, no release pipeline. Fully manual.
+- TypeScript — `node` runs source in dev; `tsc` compiles to `dist/` for the published tarball
+- Commander.js — CLI framework
+- Vitest — testing
+- Native Node `fetch` for the `openai` reviewer's HTTP path
+- No runtime dependencies beyond `commander`; no validation libraries (config schema is hand-rolled)
+
+## Releasing
+
+Releases are driven by [release-please](https://github.com/googleapis/release-please) on `push: main`. Conventional commits (`feat:`, `fix:`, etc.) become a continuously-updated "release PR" with the bumped version + generated `CHANGELOG.md`. Merging that PR cuts a GitHub Release; the `publish.yml` workflow then publishes the tagged version to npm with provenance.
+
+**One-time setup** (each item is part of the security posture, not optional polish — kept here so it can't drift silently):
+
+1. **npm trusted publishing** — on npmjs.com, open the package's settings → "Publishing access" → add a trusted publisher with org `<your-org>`, repo `Agent-CYA` (match the GitHub repo name exactly, case-sensitive), workflow filename `publish.yml`, environment `npm-publish`. No `NPM_TOKEN` ever needs to exist for ongoing releases — the workflow mints a short-lived OIDC token per publish. (Caveat: npm trusted publishing requires the package to already exist on the registry, so the very first `0.1.0-alpha.1` publish has to be done manually from your machine with `npm publish --provenance=false --access public` after `npm login`. Every release after that goes through this workflow with provenance.)
+2. **`npm-publish` environment with required reviewers** — repo Settings → Environments → New environment "npm-publish" → check "Required reviewers" and add yourself (or a small group). Every publish becomes one human click. This is the last-resort gate if any earlier defense fails.
+3. **Restrict fork PR workflow runs** — repo Settings → Actions → General → "Fork pull request workflows from outside collaborators" → set to "Require approval for all outside collaborators" (or stricter). Prevents drive-by `pull_request` workflow runs from random forks.
+4. **Verify Dependabot is active** — repo Settings → Code security → Dependabot alerts and security updates enabled. The `dependabot.yml` already auto-bumps Action SHAs weekly; this keeps the pins fresh.
+
+The threat model these defenses address is the now-familiar npm supply-chain class of attack: a `pull_request_target` "Pwn Request" landing attacker code on a trusted runner, Actions cache poisoning across the fork→base trust boundary, and OIDC token extraction from runner memory during the trusted publish. Every workflow in `.github/workflows/` is structured to close one of those vectors. See the comments in each YAML for which.
