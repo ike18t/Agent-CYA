@@ -170,6 +170,15 @@ const parseNode = (node: Node): Parsed => {
       if (children.length === 1) return children[0];
       return { type: "list", op: ";", children };
     }
+    case "redirected_statement": {
+      // `cmd > file` and friends — descend into the body command so rules
+      // still fire on the underlying command. Redirect targets are dropped
+      // (we don't model them in v1).
+      const body =
+        node.childForFieldName("body") ??
+        node.namedChildren.find((c) => c.type !== "comment");
+      return body ? parseNode(body) : { type: "unknown", raw: node.text };
+    }
     default:
       return { type: "unknown", raw: node.text };
   }
