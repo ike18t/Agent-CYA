@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.6.1-alpha.1...agent-cya-v0.6.2-alpha.1) (2026-06-16)
+
+
+### Documentation
+
+* explain how AgentCYA differs from Claude Code's static permission rules ([bcec33a](https://github.com/ike18t/Agent-CYA/commit/bcec33a1f4fec0dba2400dd0d3426c147d55b7ad))
+
 ## [0.6.1-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.6.0-alpha.1...agent-cya-v0.6.1-alpha.1) (2026-06-16)
 
 
