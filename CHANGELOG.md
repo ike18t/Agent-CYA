@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.6.0-alpha.1...agent-cya-v0.6.1-alpha.1) (2026-06-16)
+
+
+### Documentation
+
+* refresh README, AGENTS.md, and npm keywords ([#23](https://github.com/ike18t/Agent-CYA/issues/23)) ([d403f74](https://github.com/ike18t/Agent-CYA/commit/d403f744c01f131614aa7d19306e2d17d538af27))
+
 ## [0.6.0-alpha.1](https://github.com/ike18t/Agent-CYA/compare/agent-cya-v0.5.1-alpha.1...agent-cya-v0.6.0-alpha.1) (2026-06-15)
 
 
