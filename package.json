@@ -17,9 +17,13 @@
     "./package.json": "./package.json"
   },
   "keywords": [
-    "opencode-plugin",
     "claude-code",
-    "permission"
+    "opencode-plugin",
+    "permission-hook",
+    "ai-agent-security",
+    "coding-agent",
+    "llm-review",
+    "audit-log"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
