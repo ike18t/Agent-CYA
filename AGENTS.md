@@ -15,12 +15,13 @@ node src/main.ts review --help   # run CLI
 
 ## Commands
 
-| Command                                                                                  | Purpose                        |
-| ---------------------------------------------------------------------------------------- | ------------------------------ |
-| `npm test`                                                                               | Run all tests                  |
-| `npm run lint`                                                                           | tsc + eslint + prettier + knip |
-| `npm test -- src/cli.test.ts`                                                            | Run single test file           |
-| `echo '{"toolType":"Bash","command":"ls"}' \| node src/main.ts --reviewer claude review` | Manual review                  |
+| Command                                                                                  | Purpose                                         |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `npm test`                                                                               | Run all tests                                   |
+| `npm run lint`                                                                           | tsc + eslint + prettier + knip                  |
+| `npm test -- src/cli.test.ts`                                                            | Run single test file                            |
+| `echo '{"toolType":"Bash","command":"ls"}' \| node src/main.ts --reviewer claude review` | Manual review                                   |
+| `node src/main.ts suggest`                                                               | Surface allowlist candidates from the audit log |
 
 ## Critical Gotchas
 
@@ -38,17 +39,19 @@ node src/main.ts review --help   # run CLI
 **Decision pipeline** (in order):
 
 1. Parse stdin JSON → `src/cli.ts` (`parseInput`)
-2. Hard deny (regex pattern match) → `src/rules.ts`
+2. Structural rules (tree-sitter-bash AST predicates) → `src/rules.ts`
 3. LLM review → `src/reviewers/review.ts` (dispatches to `cli-binary.ts` or `openai.ts`)
 4. Audit log (always on) → `src/audit-log.ts`
 
 **Layout**:
 
-- `src/rules.ts` — hardcoded deny regex patterns, `evaluateHardDeny()`
-- `src/cli.ts` — Commander.js CLI, stdin JSON → hard deny → LLM review → stdout JSON
+- `src/rules.ts` — tree-sitter-bash AST structural rules (~30 predicates), `evaluateRules()` returns allow/ask/deny
+- `src/bash-ast.ts` — tree-sitter-bash wrapper; `parse()` returns a `Parsed` union (simple/pipeline/list/subshell/function/unknown)
+- `src/cli.ts` — Commander.js CLI, stdin JSON → structural rules → LLM review → stdout JSON
 - `src/pipeline.ts` — `evaluate()`: orchestrates rules → enrich → reviewer → audit
 - `src/file-enrich.ts` — for Bash that runs a script, reads the script contents from disk
 - `src/audit-log.ts` — always-on JSON-lines writer at `~/.agent-cya/audit.log`
+- `src/suggest.ts` — `agent-cya suggest` subcommand; aggregates audit.log allows and clusters commands worth promoting to the harness allowlist
 - `src/harnesses/claude-code.ts` — Claude Code PermissionRequest hook adapter
 - `src/harnesses/opencode-plugin.ts` — OpenCode plugin subpath export
 - `src/reviewers/review.ts` — `review()` public entry, dispatches to a transport
@@ -75,7 +78,8 @@ node src/main.ts review --help   # run CLI
 - Commander.js — CLI framework
 - Vitest — testing
 - Native Node `fetch` for the `openai` reviewer's HTTP path
-- No runtime dependencies beyond `commander`; no validation libraries (config schema is hand-rolled)
+- `tree-sitter` + `tree-sitter-bash` — Bash AST for the structural rule layer
+- No validation libraries (config schema is hand-rolled)
 
 ## Releasing
 
