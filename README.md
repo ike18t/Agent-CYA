@@ -6,17 +6,17 @@ A second-LLM permission reviewer for AI coding harnesses (Claude Code, OpenCode)
 
 ## Why
 
-You're usually choosing between two bad options: `--dangerously-skip-permissions` lets the agent rip but auto-approves anything it dreams up, while the default permission flow buries you in a prompt for every other command. AgentCYA is the middle path — a separate LLM reviews each tool call (and reads the contents of scripts it's about to execute) and decides `allow` / `deny` / `ask` on the merits, so the agent keeps moving on routine work and only pulls you in when the risk actually warrants it.
+You're usually choosing between two bad options: `--dangerously-skip-permissions` lets the agent rip but auto-approves anything it dreams up, while the default permission flow buries you in a prompt for every other command. AgentCYA is the middle path — it slots into your harness's existing permission flow (your allowlist still short-circuits everything; AgentCYA only fires on the asks you'd otherwise see), and a separate LLM reviews each tool call — including the contents of any script it's about to execute — to decide `allow` / `deny` / `ask` on the merits. Routine work keeps moving, you only get pulled in when the risk actually warrants it, and `agent-cya suggest` graduates your repeat-allows into the harness allowlist so the system gets faster over time.
 
 ## How It Works
 
 AgentCYA sits between the coding harness and execution:
 
 ```
-stdin JSON → Hard deny? → File enrichment (Bash) → LLM review → stdout JSON + audit log
+stdin JSON → Structural rules → File enrichment (Bash) → LLM review → stdout JSON + audit log
 ```
 
-1. **Hard deny** — hardcoded regex patterns catch obviously destructive commands (`rm -rf /`, `curl | bash`, `sudo`, etc.) before any LLM call.
+1. **Structural rules** — tree-sitter parses each Bash command into an AST, and ~30 structural predicates flag destructive patterns before any LLM call. Some emit `deny` (`rm -rf /`, `curl | sh`, `sudo`, `mkfs`, fork bombs); others emit `ask` (`git push --force-with-lease`, `git reset --hard`, `npm publish`, `kubectl delete`, `chmod 777`). Flag-aware: `git push --force` denies, `--force-with-lease` only asks.
 2. **File enrichment** — when a Bash command runs a script (`bash foo.sh`, `node x.js`, `./run`, `python3 script.py`), AgentCYA reads it from disk and includes its contents in the LLM prompt. The reviewer sees what's actually about to execute, not just the invocation — which closes the create-then-execute loophole where a write step slips past unreviewed.
 3. **LLM review** — everything else goes to the reviewer for a security assessment. By default this is the `claude` or `opencode` CLI binary spawned locally; `--reviewer openai` makes an HTTP call to an OpenAI-compatible API configured at `~/.agent-cya/config.json` (see [Configuration](#configuration)).
 4. **Audit log** — every decision is appended to `~/.agent-cya/audit.log`.
