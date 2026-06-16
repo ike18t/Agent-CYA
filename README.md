@@ -6,7 +6,18 @@ A second-LLM permission reviewer for AI coding harnesses (Claude Code, OpenCode)
 
 ## Why
 
-You're usually choosing between two bad options: `--dangerously-skip-permissions` lets the agent rip but auto-approves anything it dreams up, while the default permission flow buries you in a prompt for every other command. AgentCYA is the middle path — it slots into your harness's existing permission flow (your allowlist still short-circuits everything; AgentCYA only fires on the asks you'd otherwise see), and a separate LLM reviews each tool call — including the contents of any script it's about to execute — to decide `allow` / `deny` / `ask` on the merits. Routine work keeps moving, you only get pulled in when the risk actually warrants it, and `agent-cya suggest` graduates your repeat-allows into the harness allowlist so the system gets faster over time.
+You're usually choosing between two bad options: `--dangerously-skip-permissions` lets the agent rip but auto-approves anything it dreams up, while the default permission flow buries you in a prompt for every other command. AgentCYA is the middle path — a separate LLM reviews each tool call (including the contents of any script it's about to execute) and returns `allow` / `deny` / `ask` on the merits. Routine work keeps moving, you only get pulled in when the risk actually warrants it.
+
+### How is this different from Claude Code's allow/ask/deny rules?
+
+Those rules are static string/glob patterns. They work great for stuff you can enumerate (`git status`, `npm test`) — but:
+
+- **Blind to script contents.** Allowing `bash` allows `bash anything.sh`, including a script the agent just wrote.
+- **Not flag-aware.** `git push --force` and `git push --force-with-lease` look identical to a glob.
+- **Can't reason about composition.** `curl example.com | sh` and `curl example.com > out.txt` share a prefix.
+- **Can't predict novel commands.** Anything you didn't enumerate falls through to the prompt.
+
+AgentCYA composes with your existing rules — your allowlist still short-circuits everything, AgentCYA only fires on the asks. And `agent-cya suggest` graduates repeat-allows back into the static allowlist so the fast path keeps growing.
 
 ## How It Works
 
